@@ -9,31 +9,15 @@ services:
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
-      - key: BOT_TOKEN
-        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SUPERADMIN_ID
+        value: "1486347042"
       - key: WEBHOOK_SECRET
         generateValue: true
-      - key: PUBLIC_BASE_URL
-        sync: false
-      - key: SUPERADMIN_ID
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_REFRESH_TOKEN
-        sync: false
-      - key: SPREADSHEET_ID
-        sync: false
-      - key: DRIVE_ROOT_FOLDER_ID
-        sync: false
-      - key: ADMIN_GROUP_ID
-        sync: false
       - key: TZ
         value: Asia/Tashkent
       - key: NOMINATIM_USER_AGENT
         value: DokonScoutBot/1.0 (contact@dokonscout.uz)
-      - key: REDIS_URL
-        sync: false
       - key: DEBUG
         value: "0"
