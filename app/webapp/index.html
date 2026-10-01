@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Do'kon Skaut — Admin Paneli</title>
+  <meta name="description" content="Do'kon Skaut Telegram boti va savdo agentlari boshqaruv paneli">
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Leaflet & MarkerCluster CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/tokens.css?v=1.0.0">
+  <link rel="stylesheet" href="css/app.css?v=1.0.0">
+</head>
+<body>
+  <div id="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-title-group">
+        <h1>Do'kon Skaut</h1>
+        <div class="header-subtitle">Boshqaruv Paneli</div>
+      </div>
+      <div id="user-role-badge" class="badge-role">ADMIN</div>
+    </header>
+
+    <!-- 1. Home Screen -->
+    <section id="home-screen" class="screen-view active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">Jami Do'konlar</div>
+          <div id="kpi-total" class="kpi-value">0</div>
+          <div class="kpi-trend">Doimiy baza</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Bugun</div>
+          <div id="kpi-today" class="kpi-value">0</div>
+          <div class="kpi-trend">Yangi qo'shilgan</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Shu Hafta</div>
+          <div id="kpi-week" class="kpi-value">0</div>
+          <div class="kpi-trend">Dushanbadan buyon</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Faol Agentlar</div>
+          <div id="kpi-active-agents" class="kpi-value">0</div>
+          <div class="kpi-trend">Ro'yxatdan o'tgan</div>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-title">📈 30 Kunlik Dinamika</div>
+        </div>
+        <div style="height: 180px; position: relative;">
+          <canvas id="chart-daily-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-title">🏛 Hududlar Bo'yicha (Top)</div>
+        </div>
+        <div style="height: 200px; position: relative;">
+          <canvas id="chart-regions-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-title">🏆 Bugungi Eng Faol Agentlar</div>
+        </div>
+        <div id="home-top-agents">Yuklanmoqda...</div>
+      </div>
+    </section>
+
+    <!-- 2. Map Screen -->
+    <section id="map-screen" class="screen-view">
+      <div id="leaflet-map"></div>
+    </section>
+
+    <!-- 3. Stores Screen -->
+    <section id="stores-screen" class="screen-view">
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="store-search-input" class="search-input" placeholder="Qidirish (Nom, INN, Tel)...">
+      </div>
+      <div id="stores-list-container" class="store-list">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 4. Agents Screen -->
+    <section id="agents-screen" class="screen-view">
+      <div class="segmented-control">
+        <button class="segment-btn active" data-status="active">Faollar</button>
+        <button class="segment-btn" data-status="pending">Kutilmoqda</button>
+        <button class="segment-btn" data-status="blocked">Bloklangan</button>
+      </div>
+      <div id="agents-list-container">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 5. Reports Screen -->
+    <section id="reports-screen" class="screen-view">
+      <div class="glass-card">
+        <div class="card-title" style="margin-bottom: 8px;">📊 Hisobotlar va Eksport</div>
+        <p id="reports-filter-summary" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+          Jami do'konlar ma'lumotlarini yuklab olishingiz mumkin.
+        </p>
+        <button id="btn-export-excel" class="btn btn-primary" onclick="window.app.exportExcelAction()">
+          📥 Excel yuklab olish (Chatga)
+        </button>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-title" style="margin-bottom: 12px;">🗺 Hududlar Kesimida Do'konlar</div>
+        <div id="reports-region-tree">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <div class="nav-tab active" data-tab="home">
+        <div class="icon">📊</div>
+        <div>Bosh sahifa</div>
+      </div>
+      <div class="nav-tab" data-tab="map">
+        <div class="icon">🗺</div>
+        <div>Xarita</div>
+      </div>
+      <div class="nav-tab" data-tab="stores">
+        <div class="icon">🏪</div>
+        <div>Do'konlar</div>
+      </div>
+      <div class="nav-tab" data-tab="agents">
+        <div class="icon">👥</div>
+        <div>Agentlar</div>
+      </div>
+      <div class="nav-tab" data-tab="reports">
+        <div class="icon">📄</div>
+        <div>Hisobot</div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- Bottom Sheet Modal Container -->
+  <div id="bottom-sheet-backdrop" class="bottom-sheet-backdrop">
+    <div class="bottom-sheet">
+      <div class="sheet-handle"></div>
+      <div id="sheet-content"></div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- App Script -->
+  <script type="module" src="js/app.js?v=1.0.0"></script>
+</body>
+</html>

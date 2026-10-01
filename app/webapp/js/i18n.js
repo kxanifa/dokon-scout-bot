@@ -1,0 +1,163 @@
+export const I18N = {
+  uz: {
+    nav_home: "Bosh sahifa",
+    nav_map: "Xarita",
+    nav_stores: "Do'konlar",
+    nav_agents: "Agentlar",
+    nav_reports: "Hisobot",
+
+    kpi_total: "Jami do'konlar",
+    kpi_today: "Bugun qo'shilgan",
+    kpi_week: "Shu hafta",
+    kpi_active_agents: "Faol agentlar",
+    chart_daily: "30 kunlik dinamika",
+    chart_regions: "Top hududlar",
+    top_agents_today: "Bugungi eng faol agentlar",
+
+    filter_region: "Viloyat",
+    filter_district: "Tuman",
+    filter_mahalla: "Mahalla",
+    filter_clear: "Filtrni tozalash",
+    search_placeholder: "Qidirish (Nom, INN, Tel)...",
+
+    btn_details: "Tafsilot",
+    btn_open_maps: "📍 Google Maps'da ochish",
+    btn_delete: "🗑 O'chirish",
+    btn_call: "📞 Qo'ng'iroq qilish",
+    btn_export_excel: "📥 Excel yuklab olish (Chatga)",
+    btn_open_sheets: "📄 Google Sheets'ni ochish",
+
+    status_active: "Faol",
+    status_pending: "Kutilmoqda",
+    status_blocked: "Bloklangan",
+
+    tab_active: "Faollar",
+    tab_pending: "Kutilmoqda",
+    tab_blocked: "Bloklangan",
+    ranking_today: "Bugun",
+    ranking_week: "Hafta",
+    ranking_month: "Oy",
+
+    btn_approve: "✅ Qabul qilish",
+    btn_block: "🚫 Bloklash",
+    btn_unblock: "♻️ Blokdan chiqarish",
+    btn_edit_plan: "🎯 Rejani o'zgartirish",
+
+    exporting: "⏳ Hujjat tayyorlanmoqda va chatga yuborilmoqda...",
+    export_success: "✅ Excel fayl bot orqali shaxsiy chatingizga yuborildi!",
+    delete_confirm: "Haqiqatan ham bu do'konni o'chirmoqchimisiz?",
+    delete_success: "Do'kon muvaffaqiyatli o'chirildi.",
+    action_success: "Amal muvaffaqiyatli bajarildi.",
+    network_error: "Tarmoq xatoligi. Qayta urinib ko'ring.",
+    unauthorized: "Kirish ruxsati yo'q. Iltimos, bot orqali qayta kiring.",
+  },
+  uz_cyr: {
+    nav_home: "Бош саҳифа",
+    nav_map: "Харита",
+    nav_stores: "Дўконлар",
+    nav_agents: "Агентлар",
+    nav_reports: "Ҳисобот",
+
+    kpi_total: "Жами дўконлар",
+    kpi_today: "Бугун қўшилган",
+    kpi_week: "Шу ҳафта",
+    kpi_active_agents: "Фаол агентлар",
+    chart_daily: "30 кунлик динамика",
+    chart_regions: "Топ ҳудудлар",
+    top_agents_today: "Бугунги энг фаол агентлар",
+
+    filter_region: "Вилоят",
+    filter_district: "Туман",
+    filter_mahalla: "Маҳалла",
+    filter_clear: "Фильтрни тозалаш",
+    search_placeholder: "Қидириш (Ном, ИНН, Тел)...",
+
+    btn_details: "Тафсилот",
+    btn_open_maps: "📍 Google Maps'да очиш",
+    btn_delete: "🗑 Ўчириш",
+    btn_call: "📞 Қўнғироқ қилиш",
+    btn_export_excel: "📥 Excel юклаб олиш (Чатга)",
+    btn_open_sheets: "📄 Google Sheets'ни очиш",
+
+    status_active: "Фаол",
+    status_pending: "Кутилмоқда",
+    status_blocked: "Блокланган",
+
+    tab_active: "Фаоллар",
+    tab_pending: "Кутилмоқда",
+    tab_blocked: "Блокланган",
+    ranking_today: "Бугун",
+    ranking_week: "Ҳафта",
+    ranking_month: "Ой",
+
+    btn_approve: "✅ Қабул қилиш",
+    btn_block: "🚫 Блоклаш",
+    btn_unblock: "♻️ Блокдан чиқариш",
+    btn_edit_plan: "🎯 Режани ўзгартириш",
+
+    exporting: "⏳ Ҳужжат тайёрланмоқда ва чатга юборилмоқда...",
+    export_success: "✅ Excel файл бот орқали шахсий чатингизга юборилди!",
+    delete_confirm: "Ҳақиқатан ҳам бу дўконни ўчирмоқчимисиз?",
+    delete_success: "Дўкон муваффақиятли ўчирилди.",
+    action_success: "Амал муваффақиятли бажарилди.",
+    network_error: "Тармоқ хатолиги. Қайта уриниб кўринг.",
+    unauthorized: "Кириш рухсати йўқ. Илтимос, бот орқали қайта киринг.",
+  },
+  ru: {
+    nav_home: "Главная",
+    nav_map: "Карта",
+    nav_stores: "Магазины",
+    nav_agents: "Агенты",
+    nav_reports: "Отчеты",
+
+    kpi_total: "Всего магазинов",
+    kpi_today: "Добавлено сегодня",
+    kpi_week: "За эту неделю",
+    kpi_active_agents: "Активных агентов",
+    chart_daily: "Динамика за 30 дней",
+    chart_regions: "Топ регионов",
+    top_agents_today: "Самые активные агенты сегодня",
+
+    filter_region: "Область",
+    filter_district: "Район",
+    filter_mahalla: "Махалля",
+    filter_clear: "Сбросить фильтр",
+    search_placeholder: "Поиск (Название, ИНН, Тел)...",
+
+    btn_details: "Подробнее",
+    btn_open_maps: "📍 Открыть в Google Maps",
+    btn_delete: "🗑 Удалить",
+    btn_call: "📞 Позвонить",
+    btn_export_excel: "📥 Скачать Excel (В чат)",
+    btn_open_sheets: "📄 Открыть Google Sheets",
+
+    status_active: "Активен",
+    status_pending: "На проверке",
+    status_blocked: "Заблокирован",
+
+    tab_active: "Активные",
+    tab_pending: "На проверке",
+    tab_blocked: "Заблокированные",
+    ranking_today: "Сегодня",
+    ranking_week: "Неделя",
+    ranking_month: "Месяц",
+
+    btn_approve: "✅ Одобрить",
+    btn_block: "🚫 Заблокировать",
+    btn_unblock: "♻️ Разблокировать",
+    btn_edit_plan: "🎯 Изменить план",
+
+    exporting: "⏳ Документ формируется и отправляется в чат...",
+    export_success: "✅ Excel файл успешно отправлен в ваш чат с ботом!",
+    delete_confirm: "Вы действительно хотите удалить этот магазин?",
+    delete_success: "Магазин успешно удален.",
+    action_success: "Действие успешно выполнено.",
+    network_error: "Ошибка сети. Попробуйте еще раз.",
+    unauthorized: "Доступ ограничен. Откройте приложение через бота.",
+  },
+};
+
+export function getTranslation(key, lang = "uz") {
+  const dict = I18N[lang] || I18N.uz;
+  return dict[key] || I18N.uz[key] || key;
+}
