@@ -46,7 +46,8 @@ async def main():
 
     logger.info("Google Sheets fon xizmati (worker) ishga tushmoqda...")
     sheets_service.start_worker()
-    asyncio.create_task(sheets_service.warm_cache())
+    logger.info("Google Sheets keshi xotiraga yuklanmoqda (pre-warming)...")
+    await sheets_service.warm_cache()
 
     logger.info("Eski webhook o'chirilmoqda va kutilayotgan xabarlar tozalanmoqda...")
     await bot.delete_webhook(drop_pending_updates=True)

@@ -367,12 +367,20 @@ class SheetsService:
         # Caching
         self._cache_stores: list[Store] | None = None
         self._cache_stores_time: float = 0.0
+        self._fetching_stores: bool = False
+
         self._cache_visits: list[Visit] | None = None
         self._cache_visits_time: float = 0.0
+        self._fetching_visits: bool = False
+
         self._cache_agents: dict[int, Agent] | None = None
         self._cache_agents_time: float = 0.0
+        self._fetching_agents: bool = False
+
         self._cache_settings: dict[str, str] | None = None
         self._cache_settings_time: float = 0.0
+        self._fetching_settings: bool = False
+
         self._cache_ttl = 600.0  # 10 minutes cache to prevent frequent API calls
 
         # Activity throttle: user_id -> last_updated_epoch
@@ -381,20 +389,38 @@ class SheetsService:
         # Queue for writes
         self._write_queue: asyncio.Queue = asyncio.Queue()
         self._worker_task: asyncio.Task | None = None
+        self._refresher_task: asyncio.Task | None = None
 
     def start_worker(self):
-        """Start the single sequential write worker."""
+        """Start the single sequential write worker and background cache refresher."""
         if self._worker_task is None or self._worker_task.done():
             self._worker_task = asyncio.create_task(self._process_write_queue())
+        if self._refresher_task is None or self._refresher_task.done():
+            self._refresher_task = asyncio.create_task(self._periodic_cache_refresher())
 
     async def stop_worker(self):
-        """Stop the background write worker."""
+        """Stop the background write worker and cache refresher."""
         if self._worker_task and not self._worker_task.done():
             self._worker_task.cancel()
             try:
                 await self._worker_task
             except asyncio.CancelledError:
                 pass
+        if self._refresher_task and not self._refresher_task.done():
+            self._refresher_task.cancel()
+            try:
+                await self._refresher_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _periodic_cache_refresher(self):
+        """Keep caches 100% fresh in background and prevent dead sockets."""
+        while True:
+            await asyncio.sleep(180)  # Every 3 minutes
+            try:
+                await self.warm_cache()
+            except Exception as e:
+                logger.debug(f"Periodic cache refresh notice: {e}")
 
     def _get_credentials(self) -> Credentials:
         if self._credentials:
@@ -414,17 +440,19 @@ class SheetsService:
             creds = self._get_credentials()
             try:
                 import httplib2
-                http = httplib2.Http(timeout=15)
-                http = creds.authorize(http)
-                self._service = build("sheets", "v4", http=http, cache_discovery=False)
-            except Exception:
+                import google_auth_httplib2
+                http = httplib2.Http(timeout=5)
+                authorized_http = google_auth_httplib2.AuthorizedHttp(credentials=creds, http=http)
+                self._service = build("sheets", "v4", http=authorized_http, cache_discovery=False)
+            except Exception as e:
+                logger.warning(f"Fallback to default build for Sheets service: {e}")
                 self._service = build("sheets", "v4", credentials=creds, cache_discovery=False)
         return self._service
 
     async def _execute_with_retry(self, func, *args, **kwargs):
         """Execute a blocking Sheets operation with serialization lock and exponential retry."""
         async with self._api_lock:
-            delays = [1, 2, 4]
+            delays = [0.5, 1.0]
             for attempt, delay in enumerate(delays, start=1):
                 try:
                     return await asyncio.to_thread(func, *args, **kwargs)
@@ -435,13 +463,13 @@ class SheetsService:
                         or "500" in err_msg
                         or "503" in err_msg
                         or "timed out" in err_msg.lower()
+                        or "connection" in err_msg.lower()
                     )
-                    if is_retryable and attempt < len(delays):
+                    if is_retryable and attempt <= len(delays):
                         logger.warning(
                             f"Sheets API call failed (attempt {attempt}), retrying in {delay}s: {e}"
                         )
-                        if "timed out" in err_msg.lower():
-                            self._service = None  # Reconnect fresh socket
+                        self._service = None  # Reconnect fresh socket
                         await asyncio.sleep(delay)
                     else:
                         raise
@@ -523,15 +551,31 @@ class SheetsService:
         return await future
 
     # ------------------ High Level Store Methods ------------------
-    async def get_stores(self, include_deleted: bool = False) -> list[Store]:
-        now = time.time()
-        if self._cache_stores is not None and (now - self._cache_stores_time) < self._cache_ttl:
-            stores = self._cache_stores
-        else:
+    async def _fetch_stores(self) -> list[Store]:
+        if self._fetching_stores:
+            return self._cache_stores or []
+        self._fetching_stores = True
+        try:
             raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_STORES)
             stores = [Store.from_row(r) for r in raw_rows if r and any(r)]
             self._cache_stores = stores
-            self._cache_stores_time = now
+            self._cache_stores_time = time.time()
+            return stores
+        except Exception as e:
+            logger.warning(f"Background fetch stores failed: {e}")
+            return self._cache_stores or []
+        finally:
+            self._fetching_stores = False
+
+    async def get_stores(self, include_deleted: bool = False) -> list[Store]:
+        now = time.time()
+        if self._cache_stores is not None:
+            # Stale-while-revalidate: return instant in-memory cache, refresh in background if expired
+            if (now - self._cache_stores_time) >= self._cache_ttl and not self._fetching_stores:
+                asyncio.create_task(self._fetch_stores())
+            stores = self._cache_stores
+        else:
+            stores = await self._fetch_stores()
 
         if include_deleted:
             return list(stores)
@@ -643,15 +687,30 @@ class SheetsService:
     async def append_visit(self, visit: Visit) -> Visit:
         return await self._queue_write(self._append_visit_internal, visit)
 
-    async def get_visits(self, store_id: int | None = None) -> list[Visit]:
-        now = time.time()
-        if self._cache_visits is not None and (now - self._cache_visits_time) < self._cache_ttl:
-            visits = self._cache_visits
-        else:
+    async def _fetch_visits(self) -> list[Visit]:
+        if self._fetching_visits:
+            return self._cache_visits or []
+        self._fetching_visits = True
+        try:
             raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_VISITS)
             visits = [Visit.from_row(r) for r in raw_rows if r and any(r)]
             self._cache_visits = visits
-            self._cache_visits_time = now
+            self._cache_visits_time = time.time()
+            return visits
+        except Exception as e:
+            logger.warning(f"Background fetch visits failed: {e}")
+            return self._cache_visits or []
+        finally:
+            self._fetching_visits = False
+
+    async def get_visits(self, store_id: int | None = None) -> list[Visit]:
+        now = time.time()
+        if self._cache_visits is not None:
+            if (now - self._cache_visits_time) >= self._cache_ttl and not self._fetching_visits:
+                asyncio.create_task(self._fetch_visits())
+            visits = self._cache_visits
+        else:
+            visits = await self._fetch_visits()
 
         if store_id is not None:
             return [v for v in visits if v.store_id == store_id]
@@ -733,28 +792,38 @@ class SheetsService:
             updated_by_name=user_name,
         )
 
-    # ------------------ High Level Agent Methods ------------------
+    async def _fetch_agents(self) -> dict[int, Agent]:
+        if self._fetching_agents:
+            return self._cache_agents or {}
+        self._fetching_agents = True
+        try:
+            raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_AGENTS)
+            agents: dict[int, Agent] = {}
+            for r in raw_rows:
+                if r and any(r):
+                    ag = Agent.from_row(r)
+                    if ag.telegram_id:
+                        agents[ag.telegram_id] = ag
+            self._cache_agents = agents
+            self._cache_agents_time = time.time()
+            return agents
+        except Exception as e:
+            logger.warning(f"Background fetch agents failed: {e}")
+            return self._cache_agents or {}
+        finally:
+            self._fetching_agents = False
+
     async def get_agents(self) -> dict[int, Agent]:
         now = time.time()
-        if self._cache_agents is not None and (now - self._cache_agents_time) < self._cache_ttl:
+        if self._cache_agents is not None:
+            if (now - self._cache_agents_time) >= self._cache_ttl and not self._fetching_agents:
+                asyncio.create_task(self._fetch_agents())
             return dict(self._cache_agents)
-
-        raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_AGENTS)
-        agents: dict[int, Agent] = {}
-        for r in raw_rows:
-            if r and any(r):
-                ag = Agent.from_row(r)
-                if ag.telegram_id:
-                    agents[ag.telegram_id] = ag
-
-        self._cache_agents = agents
-        self._cache_agents_time = now
-        return dict(agents)
+        else:
+            agents = await self._fetch_agents()
+            return dict(agents)
 
     async def get_agent_by_id(self, telegram_id: int) -> Agent | None:
-        now = time.time()
-        if self._cache_agents is not None and (now - self._cache_agents_time) < self._cache_ttl:
-            return self._cache_agents.get(telegram_id)
         agents = await self.get_agents()
         return agents.get(telegram_id)
 
@@ -763,10 +832,10 @@ class SheetsService:
         try:
             logger.info("Google Sheets cache pre-warming boshlanmoqda...")
             await asyncio.gather(
-                self.get_agents(),
-                self.get_settings(),
-                self.get_stores(include_deleted=True),
-                self.get_visits(),
+                self._fetch_agents(),
+                self._fetch_settings(),
+                self._fetch_stores(),
+                self._fetch_visits(),
                 return_exceptions=True,
             )
             logger.info("Google Sheets cache muvaffaqiyatli xotiraga yuklandi (pre-warmed).")
@@ -857,17 +926,22 @@ class SheetsService:
         return True
 
     async def update_agent_activity(self, telegram_id: int) -> None:
-        """Update last_active timestamp at most once every 10 minutes to save quota."""
+        """Update last_active timestamp in memory, throttled to 1 hour for sheet write."""
         now = time.time()
+        now_str = get_current_tashkent_time().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Always update in-memory cache instantly
+        if self._cache_agents and telegram_id in self._cache_agents:
+            self._cache_agents[telegram_id].last_active = now_str
+
         last = self._activity_throttle.get(telegram_id, 0.0)
-        if now - last < 600.0:
+        if now - last < 3600.0:
             return
         self._activity_throttle[telegram_id] = now
 
         agent = await self.get_agent_by_id(telegram_id)
         if agent:
-            agent.last_active = get_current_tashkent_time().strftime("%Y-%m-%d %H:%M:%S")
-            # We don't await blocking queue here to keep bot response blazing fast
+            agent.last_active = now_str
             asyncio.create_task(self.upsert_agent(agent))
 
     # ------------------ High Level Log & Settings Methods ------------------
@@ -877,29 +951,43 @@ class SheetsService:
     async def append_log(self, entry: LogEntry) -> None:
         await self._queue_write(self._append_log_internal, entry)
 
+    async def _fetch_settings(self) -> dict[str, str]:
+        if self._fetching_settings:
+            return self._cache_settings or {}
+        self._fetching_settings = True
+        try:
+            raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_SETTINGS)
+            settings: dict[str, str] = {
+                "admin_group_id": "",
+                "daily_plan_default": "20",
+                "report_time": "21:00",
+                "notify_new_store": "1",
+            }
+            for r in raw_rows:
+                if r and len(r) >= 2:
+                    key = str(r[0]).strip()
+                    val = str(r[1]).strip()
+                    if val.startswith("'"):
+                        val = val[1:]
+                    settings[key] = val
+
+            self._cache_settings = settings
+            self._cache_settings_time = time.time()
+            return settings
+        except Exception as e:
+            logger.warning(f"Background fetch settings failed: {e}")
+            return self._cache_settings or {}
+        finally:
+            self._fetching_settings = False
+
     async def get_settings(self) -> dict[str, str]:
         now = time.time()
-        if self._cache_settings is not None and (now - self._cache_settings_time) < self._cache_ttl:
+        if self._cache_settings is not None:
+            if (now - self._cache_settings_time) >= self._cache_ttl and not self._fetching_settings:
+                asyncio.create_task(self._fetch_settings())
             return dict(self._cache_settings)
-
-        raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_SETTINGS)
-        settings: dict[str, str] = {
-            "admin_group_id": "",
-            "daily_plan_default": "20",
-            "report_time": "21:00",
-            "notify_new_store": "1",
-        }
-        for r in raw_rows:
-            if r and len(r) >= 2:
-                key = str(r[0]).strip()
-                val = str(r[1]).strip()
-                if val.startswith("'"):
-                    val = val[1:]
-                settings[key] = val
-
-        self._cache_settings = settings
-        self._cache_settings_time = now
-        return dict(settings)
+        else:
+            return await self._fetch_settings()
 
     async def get_setting(self, key: str, default: str = "") -> str:
         s = await self.get_settings()

@@ -41,10 +41,12 @@ class DriveService:
             creds = self._get_credentials()
             try:
                 import httplib2
-                http = httplib2.Http(timeout=20)
-                http = creds.authorize(http)
-                self._service = build("drive", "v3", http=http, cache_discovery=False)
-            except Exception:
+                import google_auth_httplib2
+                http = httplib2.Http(timeout=15)
+                authorized_http = google_auth_httplib2.AuthorizedHttp(credentials=creds, http=http)
+                self._service = build("drive", "v3", http=authorized_http, cache_discovery=False)
+            except Exception as e:
+                logger.warning(f"AuthorizedHttp setup failed for Drive: {e}")
                 self._service = build("drive", "v3", credentials=creds, cache_discovery=False)
         return self._service
 
