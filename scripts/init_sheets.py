@@ -5,7 +5,18 @@ according to SPEC section 7.
 """
 
 import logging
+from pathlib import Path
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+# Loyiha ildizini sys.path ga qo'shish
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -237,10 +248,71 @@ def init_spreadsheet(spreadsheet_id: str, credentials: Credentials) -> None:
     logger.info("Google Spreadsheet muvaffaqiyatli sozlandi!")
 
 
+def ensure_spreadsheet_and_drive_folder(creds: Credentials, settings) -> tuple[str, str]:
+    spreadsheet_id = settings.SPREADSHEET_ID
+    folder_id = settings.DRIVE_ROOT_FOLDER_ID
+
+    drive_service = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+    if not folder_id:
+        logger.info("Google Drive'da 'Dokon Scout Rasmlar' papkasi avtomatik yaratilmoqda...")
+        folder_meta = {
+            "name": "Dokon Scout Rasmlar",
+            "mimeType": "application/vnd.google-apps.folder",
+        }
+        folder = drive_service.files().create(body=folder_meta, fields="id").execute()
+        folder_id = folder.get("id")
+        logger.info(f"Yangi Drive papka ID: {folder_id}")
+
+    if not spreadsheet_id:
+        logger.info("Yangi Google Spreadsheet ('Dokon Scout Baza') avtomatik yaratilmoqda...")
+        raw_sheets = build("sheets", "v4", credentials=creds, cache_discovery=False)
+        sheet_meta = {"properties": {"title": "Dokon Scout Baza"}}
+        sheet = raw_sheets.spreadsheets().create(body=sheet_meta, fields="spreadsheetId").execute()
+        spreadsheet_id = sheet.get("spreadsheetId")
+        logger.info(f"Yangi Spreadsheet ID: {spreadsheet_id}")
+
+        if folder_id:
+            try:
+                drive_service.files().update(
+                    fileId=spreadsheet_id,
+                    addParents=folder_id,
+                    fields="id, parents",
+                ).execute()
+            except Exception as e:
+                logger.warning(f"Jadvalni papkaga ko'chirishda ogohlantirish: {e}")
+
+    # .env faylini avtomatik yangilash
+    try:
+        with open(".env", "r", encoding="utf-8") as f:
+            env_content = f.read()
+        import re
+        env_content = re.sub(
+            r"^SPREADSHEET_ID=.*$",
+            f"SPREADSHEET_ID={spreadsheet_id}",
+            env_content,
+            flags=re.MULTILINE,
+        )
+        env_content = re.sub(
+            r"^DRIVE_ROOT_FOLDER_ID=.*$",
+            f"DRIVE_ROOT_FOLDER_ID={folder_id}",
+            env_content,
+            flags=re.MULTILINE,
+        )
+        with open(".env", "w", encoding="utf-8") as f:
+            f.write(env_content)
+        logger.info("💾 SPREADSHEET_ID va DRIVE_ROOT_FOLDER_ID .env ga avtomatik saqlandi!")
+    except Exception as e:
+        logger.warning(f".env fayliga yozishda xatolik: {e}")
+
+    return spreadsheet_id, folder_id
+
+
 def main():
     settings = get_settings()
-    if not settings.SPREADSHEET_ID:
-        logger.error("SPREADSHEET_ID sozlanmagan. Iltimos, .env faylini to'ldiring.")
+
+    if not settings.GOOGLE_REFRESH_TOKEN:
+        logger.error("GOOGLE_REFRESH_TOKEN sozlanmagan. Avval python scripts/get_google_token.py ni bajaring.")
         sys.exit(1)
 
     creds = Credentials(
@@ -252,8 +324,12 @@ def main():
         scopes=SCOPES,
     )
 
+    spreadsheet_id = settings.SPREADSHEET_ID
+    if not spreadsheet_id or not settings.DRIVE_ROOT_FOLDER_ID:
+        spreadsheet_id, _ = ensure_spreadsheet_and_drive_folder(creds, settings)
+
     try:
-        init_spreadsheet(settings.SPREADSHEET_ID, creds)
+        init_spreadsheet(spreadsheet_id, creds)
     except Exception as e:
         logger.error(f"Xatolik yuz berdi: {e}", exc_info=True)
         sys.exit(1)

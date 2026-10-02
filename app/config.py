@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +22,20 @@ class Settings(BaseSettings):
     NOMINATIM_USER_AGENT: str = "DokonScoutBot/1.0 (info@dokonscout.uz)"
     REDIS_URL: str | None = None
     DEBUG: bool = False
+
+    @field_validator("ADMIN_GROUP_ID", mode="before")
+    @classmethod
+    def parse_admin_group_id(cls, v: Any) -> int | None:
+        if v is None or v == "" or (isinstance(v, str) and not v.strip()):
+            return None
+        return int(v)
+
+    @field_validator("REDIS_URL", mode="before")
+    @classmethod
+    def parse_redis_url(cls, v: Any) -> str | None:
+        if v is None or v == "" or (isinstance(v, str) and not v.strip()):
+            return None
+        return str(v)
 
     model_config = SettingsConfigDict(
         env_file=".env",

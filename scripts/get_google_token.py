@@ -27,7 +27,18 @@ QADAMMA-QADAM YO'RIQNOMA (Google Cloud Console):
 8. Terminalda paydo bo'lgan GOOGLE_REFRESH_TOKEN qiymatini nusxalab, .env faylingizga qo'ying!
 """
 
+from pathlib import Path
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+# Loyiha ildizini sys.path ga qo'shish
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 
@@ -55,15 +66,39 @@ def main():
     }
 
     flow = InstalledAppFlow.from_client_config(client_config, scopes=SCOPES)
-    print("\n🌐 Brauzer ochilmoqda, Google akkauntingizga ruxsat bering...\n")
-    creds = flow.run_local_server(port=0, prompt="consent", access_type="offline")
+    print("\n🌐 Brauzer ochilmoqda, Google akkauntingizga ruxsat bering...", flush=True)
+    creds = flow.run_local_server(
+        port=0,
+        prompt="consent",
+        access_type="offline",
+        authorization_prompt_message="Quyidagi havola orqali ruxsat bering:\n{url}\n",
+    )
 
     print("=" * 60)
     print("✅ MUVAFFAQITYATLI! Sizning GOOGLE_REFRESH_TOKEN:")
     print("=" * 60)
     print(creds.refresh_token)
     print("=" * 60)
-    print("\nUshbu tokenni nusxalab, .env faylidagi GOOGLE_REFRESH_TOKEN o'zgaruvchisiga qo'ying.\n")
+
+    if creds.refresh_token:
+        try:
+            with open(".env", "r", encoding="utf-8") as f:
+                content = f.read()
+            import re
+            new_content = re.sub(
+                r"^GOOGLE_REFRESH_TOKEN=.*$",
+                f"GOOGLE_REFRESH_TOKEN={creds.refresh_token}",
+                content,
+                flags=re.MULTILINE,
+            )
+            with open(".env", "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print("💾 GOOGLE_REFRESH_TOKEN avtomatik ravishda .env fayliga saqlandi!\n")
+        except Exception as e:
+            print(f"⚠️ .env ga avtomatik yozishda xatolik: {e}")
+            print("Iltimos, tokenni qo'lda .env fayliga qo'ying.\n")
+    else:
+        print("⚠️ Refresh token qaytarilmadi (Google hisobingizda ilova ruxsatini bekor qilib qayta urinib ko'ring).\n")
 
 
 if __name__ == "__main__":

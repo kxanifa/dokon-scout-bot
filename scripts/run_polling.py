@@ -6,7 +6,18 @@ tez va oson sinash uchun yordamchi skript.
 
 import asyncio
 import logging
+from pathlib import Path
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+# Loyiha ildizini sys.path ga qo'shish
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from app.bot.dispatcher import create_bot_and_dispatcher
 from app.config import get_settings
