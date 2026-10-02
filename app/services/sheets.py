@@ -362,6 +362,7 @@ class SheetsService:
     def __init__(self, credentials: Credentials | None = None):
         self._credentials = credentials
         self._service = None
+        self._api_lock = asyncio.Lock()
 
         # Caching
         self._cache_stores: list[Store] | None = None
@@ -372,7 +373,7 @@ class SheetsService:
         self._cache_agents_time: float = 0.0
         self._cache_settings: dict[str, str] | None = None
         self._cache_settings_time: float = 0.0
-        self._cache_ttl = 25.0  # seconds
+        self._cache_ttl = 60.0  # seconds
 
         # Activity throttle: user_id -> last_updated_epoch
         self._activity_throttle: dict[int, float] = {}
@@ -411,22 +412,39 @@ class SheetsService:
     def _get_service(self):
         if self._service is None:
             creds = self._get_credentials()
-            self._service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+            try:
+                import httplib2
+                http = httplib2.Http(timeout=15)
+                http = creds.authorize(http)
+                self._service = build("sheets", "v4", http=http, cache_discovery=False)
+            except Exception:
+                self._service = build("sheets", "v4", credentials=creds, cache_discovery=False)
         return self._service
 
     async def _execute_with_retry(self, func, *args, **kwargs):
-        """Execute a blocking Sheets operation in thread with exponential retry."""
-        delays = [1, 2, 4, 8, 16]
-        for attempt, delay in enumerate(delays, start=1):
-            try:
-                return await asyncio.to_thread(func, *args, **kwargs)
-            except Exception as e:
-                err_msg = str(e)
-                if ("429" in err_msg or "500" in err_msg or "503" in err_msg) and attempt < len(delays):
-                    logger.warning(f"Sheets API call failed (attempt {attempt}), retrying in {delay}s: {e}")
-                    await asyncio.sleep(delay)
-                else:
-                    raise
+        """Execute a blocking Sheets operation with serialization lock and exponential retry."""
+        async with self._api_lock:
+            delays = [1, 2, 4]
+            for attempt, delay in enumerate(delays, start=1):
+                try:
+                    return await asyncio.to_thread(func, *args, **kwargs)
+                except Exception as e:
+                    err_msg = str(e)
+                    is_retryable = (
+                        "429" in err_msg
+                        or "500" in err_msg
+                        or "503" in err_msg
+                        or "timed out" in err_msg.lower()
+                    )
+                    if is_retryable and attempt < len(delays):
+                        logger.warning(
+                            f"Sheets API call failed (attempt {attempt}), retrying in {delay}s: {e}"
+                        )
+                        if "timed out" in err_msg.lower():
+                            self._service = None  # Reconnect fresh socket
+                        await asyncio.sleep(delay)
+                    else:
+                        raise
 
     # ------------------ Invalidation ------------------
     def invalidate_stores_cache(self):
@@ -735,7 +753,12 @@ class SheetsService:
                 agent.registered_at = get_current_tashkent_time().strftime("%Y-%m-%d %H:%M:%S")
             await self._execute_with_retry(self._append_row_sync, SHEET_AGENTS, agent.to_row())
 
-        self.invalidate_agents_cache()
+        # Update in-memory cache directly so next lookup is instantaneous
+        if self._cache_agents is not None:
+            self._cache_agents[agent.telegram_id] = agent
+            self._cache_agents_time = time.time()
+        else:
+            self.invalidate_agents_cache()
         return agent
 
     async def upsert_agent(self, agent: Agent) -> Agent:

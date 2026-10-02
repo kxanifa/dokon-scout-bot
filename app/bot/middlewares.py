@@ -40,7 +40,7 @@ class UserContextMiddleware(BaseMiddleware):
             data["lang"] = agent.lang or "uz"
             data["role"] = agent.role
             data["status"] = agent.status
-            await sheets_service.update_agent_activity(user.id)
+            asyncio.create_task(sheets_service.update_agent_activity(user.id))
         else:
             if is_superadmin:
                 # Auto register superadmin

@@ -19,7 +19,7 @@ def get_main_menu(lang: str = "uz", role: str = "agent", webapp_url: str = "") -
         [KeyboardButton(text=t("btn_lang", lang))],
     ]
 
-    if role in ("admin", "superadmin") and webapp_url:
+    if role in ("admin", "superadmin") and webapp_url and "example.com" not in webapp_url and webapp_url.startswith("https://"):
         keyboard.append([
             KeyboardButton(
                 text=t("btn_admin_panel", lang),

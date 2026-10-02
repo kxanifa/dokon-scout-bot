@@ -21,6 +21,7 @@ class DriveService:
         self._credentials = credentials
         self._service = None
         self._folder_cache: dict[str, str] = {}  # "parent_id/name" -> folder_id
+        self._api_lock = asyncio.Lock()
 
     def _get_credentials(self) -> Credentials:
         if self._credentials:
@@ -38,22 +39,39 @@ class DriveService:
     def _get_service(self):
         if self._service is None:
             creds = self._get_credentials()
-            self._service = build("drive", "v3", credentials=creds, cache_discovery=False)
+            try:
+                import httplib2
+                http = httplib2.Http(timeout=20)
+                http = creds.authorize(http)
+                self._service = build("drive", "v3", http=http, cache_discovery=False)
+            except Exception:
+                self._service = build("drive", "v3", credentials=creds, cache_discovery=False)
         return self._service
 
     async def _execute_with_retry(self, func, *args, **kwargs):
-        """Execute a blocking Drive operation in thread with exponential retry."""
-        delays = [1, 2, 4, 8, 16]
-        for attempt, delay in enumerate(delays, start=1):
-            try:
-                return await asyncio.to_thread(func, *args, **kwargs)
-            except Exception as e:
-                err_msg = str(e)
-                if ("429" in err_msg or "500" in err_msg or "503" in err_msg) and attempt < len(delays):
-                    logger.warning(f"Drive API call failed (attempt {attempt}), retrying in {delay}s: {e}")
-                    await asyncio.sleep(delay)
-                else:
-                    raise
+        """Execute a blocking Drive operation with serialization lock and exponential retry."""
+        async with self._api_lock:
+            delays = [1, 2, 4]
+            for attempt, delay in enumerate(delays, start=1):
+                try:
+                    return await asyncio.to_thread(func, *args, **kwargs)
+                except Exception as e:
+                    err_msg = str(e)
+                    is_retryable = (
+                        "429" in err_msg
+                        or "500" in err_msg
+                        or "503" in err_msg
+                        or "timed out" in err_msg.lower()
+                    )
+                    if is_retryable and attempt < len(delays):
+                        logger.warning(
+                            f"Drive API call failed (attempt {attempt}), retrying in {delay}s: {e}"
+                        )
+                        if "timed out" in err_msg.lower():
+                            self._service = None
+                        await asyncio.sleep(delay)
+                    else:
+                        raise
 
     def _ensure_folder_sync(self, parent_id: str, folder_name: str) -> str:
         cache_key = f"{parent_id}/{folder_name}"
