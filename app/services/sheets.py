@@ -362,7 +362,7 @@ class SheetsService:
     def __init__(self, credentials: Credentials | None = None):
         self._credentials = credentials
         self._service = None
-        self._api_lock = asyncio.Lock()
+        self._api_lock = asyncio.Semaphore(10)
 
         # Caching
         self._cache_stores: list[Store] | None = None
@@ -551,16 +551,19 @@ class SheetsService:
 
     async def _append_store_internal(self, store: Store) -> Store:
         # Determine next ID safely inside sequential worker
-        raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_STORES)
-        max_id = 0
-        for r in raw_rows:
-            if r and len(r) > 0:
-                try:
-                    val = int(str(r[0]).strip().lstrip("'"))
-                    if val > max_id:
-                        max_id = val
-                except ValueError:
-                    pass
+        if self._cache_stores is not None and len(self._cache_stores) > 0:
+            max_id = max((s.id for s in self._cache_stores), default=0)
+        else:
+            raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_STORES)
+            max_id = 0
+            for r in raw_rows:
+                if r and len(r) > 0:
+                    try:
+                        val = int(str(r[0]).strip().lstrip("'"))
+                        if val > max_id:
+                            max_id = val
+                    except ValueError:
+                        pass
         store.id = max_id + 1
 
         now_t = get_current_tashkent_time()
@@ -570,7 +573,13 @@ class SheetsService:
             store.time = now_t.strftime("%H:%M:%S")
 
         await self._execute_with_retry(self._append_row_sync, SHEET_STORES, store.to_row())
-        self.invalidate_stores_cache()
+
+        # Update in-memory cache directly for instant subsequent queries
+        if self._cache_stores is not None:
+            self._cache_stores.append(store)
+            self._cache_stores_time = time.time()
+        else:
+            self.invalidate_stores_cache()
 
         # Log
         await self._append_log_internal(
@@ -589,16 +598,19 @@ class SheetsService:
         return await self._queue_write(self._append_store_internal, store)
 
     async def _append_visit_internal(self, visit: Visit) -> Visit:
-        raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_VISITS)
-        max_id = 0
-        for r in raw_rows:
-            if r and len(r) > 0:
-                try:
-                    val = int(str(r[0]).strip().lstrip("'"))
-                    if val > max_id:
-                        max_id = val
-                except ValueError:
-                    pass
+        if self._cache_visits is not None and len(self._cache_visits) > 0:
+            max_id = max((v.id for v in self._cache_visits), default=0)
+        else:
+            raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_VISITS)
+            max_id = 0
+            for r in raw_rows:
+                if r and len(r) > 0:
+                    try:
+                        val = int(str(r[0]).strip().lstrip("'"))
+                        if val > max_id:
+                            max_id = val
+                    except ValueError:
+                        pass
         visit.id = max_id + 1
 
         now_t = get_current_tashkent_time()
@@ -608,7 +620,13 @@ class SheetsService:
             visit.time = now_t.strftime("%H:%M:%S")
 
         await self._execute_with_retry(self._append_row_sync, SHEET_VISITS, visit.to_row())
-        self.invalidate_visits_cache()
+
+        # Update in-memory cache directly for instant subsequent queries
+        if self._cache_visits is not None:
+            self._cache_visits.append(visit)
+            self._cache_visits_time = time.time()
+        else:
+            self.invalidate_visits_cache()
 
         await self._append_log_internal(
             LogEntry(
@@ -676,7 +694,13 @@ class SheetsService:
         await self._execute_with_retry(
             self._update_row_sync, SHEET_STORES, target_row_idx, target_store.to_row()
         )
-        self.invalidate_stores_cache()
+        if self._cache_stores is not None:
+            for idx, s in enumerate(self._cache_stores):
+                if s.id == store_id:
+                    self._cache_stores[idx] = target_store
+                    break
+        else:
+            self.invalidate_stores_cache()
 
         await self._append_log_internal(
             LogEntry(
@@ -728,10 +752,26 @@ class SheetsService:
         return dict(agents)
 
     async def get_agent_by_id(self, telegram_id: int) -> Agent | None:
-        if self._cache_agents is not None and telegram_id in self._cache_agents:
-            return self._cache_agents[telegram_id]
+        now = time.time()
+        if self._cache_agents is not None and (now - self._cache_agents_time) < self._cache_ttl:
+            return self._cache_agents.get(telegram_id)
         agents = await self.get_agents()
         return agents.get(telegram_id)
+
+    async def warm_cache(self) -> None:
+        """Pre-warm all caches in the background so bot responses are instant."""
+        try:
+            logger.info("Google Sheets cache pre-warming boshlanmoqda...")
+            await asyncio.gather(
+                self.get_agents(),
+                self.get_settings(),
+                self.get_stores(include_deleted=True),
+                self.get_visits(),
+                return_exceptions=True,
+            )
+            logger.info("Google Sheets cache muvaffaqiyatli xotiraga yuklandi (pre-warmed).")
+        except Exception as e:
+            logger.warning(f"Cache pre-warming paytida xatolik: {e}")
 
     async def _upsert_agent_internal(self, agent: Agent) -> Agent:
         raw_rows = await self._execute_with_retry(self._read_sheet_sync, SHEET_AGENTS)

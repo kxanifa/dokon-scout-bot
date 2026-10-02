@@ -6,7 +6,13 @@ from aiogram.fsm.storage.memory import MemoryStorage, StorageKey
 from aiogram.types import CallbackQuery, Chat, Location, Message, User
 
 from app.bot.handlers.my_records import callback_edit_store
-from app.bot.handlers.store_flow import process_inn, process_location
+from app.bot.handlers.store_flow import (
+    process_inn,
+    process_location,
+    process_manual_mahalla,
+    process_phone,
+    skip_photos,
+)
 from app.bot.states import StoreFlowStates
 from app.services.geocode import parse_address
 from app.services.sheets import Agent, Store, sheets_service
@@ -203,3 +209,77 @@ async def test_stats_and_ranking():
         assert ranking["my_rank"] == 1
         assert ranking["my_count"] == 2
         assert "🥇 Agent 10: 2 ta" in ranking["ranking_text"]
+
+
+@pytest.mark.asyncio
+async def test_skip_photos_flow():
+    storage = MemoryStorage()
+    key = StorageKey(bot_id=1, chat_id=1, user_id=1)
+    state = FSMContext(storage=storage, key=key)
+    await state.set_state(StoreFlowStates.waiting_for_photos)
+
+    chat = Chat(id=1, type="private")
+    user = User(id=1, is_bot=False, first_name="Agent")
+    msg = Message(message_id=10, date=1000, chat=chat, from_user=user, text="⏭ O'tkazib yuborish")
+
+    with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
+        await skip_photos(msg, state, lang="uz")
+        mock_ans.assert_called_once()
+        assert await state.get_state() == StoreFlowStates.waiting_for_location.state
+
+
+@pytest.mark.asyncio
+async def test_skip_mahalla_flow():
+    storage = MemoryStorage()
+    key = StorageKey(bot_id=1, chat_id=1, user_id=1)
+    state = FSMContext(storage=storage, key=key)
+    await state.set_state(StoreFlowStates.manual_mahalla)
+
+    chat = Chat(id=1, type="private")
+    user = User(id=1, is_bot=False, first_name="Agent")
+    msg = Message(message_id=11, date=1000, chat=chat, from_user=user, text="⏭ O'tkazib yuborish")
+
+    with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
+        await process_manual_mahalla(msg, state, lang="uz")
+        mock_ans.assert_called_once()
+        assert await state.get_state() == StoreFlowStates.waiting_for_inn.state
+        data = await state.get_data()
+        assert data.get("mahalla_name") == ""
+
+
+@pytest.mark.asyncio
+async def test_skip_inn_flow():
+    storage = MemoryStorage()
+    key = StorageKey(bot_id=1, chat_id=1, user_id=1)
+    state = FSMContext(storage=storage, key=key)
+    await state.set_state(StoreFlowStates.waiting_for_inn)
+
+    chat = Chat(id=1, type="private")
+    user = User(id=1, is_bot=False, first_name="Agent")
+    msg = Message(message_id=12, date=1000, chat=chat, from_user=user, text="⏭ O'tkazib yuborish")
+
+    with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
+        await process_inn(msg, state, lang="uz")
+        mock_ans.assert_called_once()
+        assert await state.get_state() == StoreFlowStates.waiting_for_store_name.state
+        data = await state.get_data()
+        assert data.get("inn") == ""
+
+
+@pytest.mark.asyncio
+async def test_skip_phone_flow():
+    storage = MemoryStorage()
+    key = StorageKey(bot_id=1, chat_id=1, user_id=1)
+    state = FSMContext(storage=storage, key=key)
+    await state.set_state(StoreFlowStates.waiting_for_phone)
+
+    chat = Chat(id=1, type="private")
+    user = User(id=1, is_bot=False, first_name="Agent")
+    msg = Message(message_id=13, date=1000, chat=chat, from_user=user, text="⏭ O'tkazib yuborish")
+
+    with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
+        await process_phone(msg, state, lang="uz")
+        mock_ans.assert_called_once()
+        assert await state.get_state() == StoreFlowStates.summary_confirmation.state
+        data = await state.get_data()
+        assert data.get("phone") == ""

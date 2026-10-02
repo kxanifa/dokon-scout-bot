@@ -123,6 +123,19 @@ class GeocodeService:
         self._last_request_time: float = 0.0
         self._cache: dict[tuple[float, float], dict[str, str]] = {}
         self._cache_limit = 1000
+        self._client: httpx.AsyncClient | None = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=3.5,
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+            )
+        return self._client
+
+    async def close(self):
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
 
     async def reverse_geocode(self, lat: float, lon: float) -> dict[str, str] | None:
         """
@@ -155,21 +168,21 @@ class GeocodeService:
             self._last_request_time = time.time()
 
             try:
-                async with httpx.AsyncClient(timeout=8.0) as client:
-                    resp = await client.get(url, params=params, headers=headers)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        parsed = parse_address(data)
+                client = self._get_client()
+                resp = await client.get(url, params=params, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    parsed = parse_address(data)
 
-                        # Store in cache
-                        if len(self._cache) >= self._cache_limit:
-                            # Pop oldest
-                            self._cache.pop(next(iter(self._cache)))
-                        self._cache[coord_key] = parsed
-                        return parsed
-                    else:
-                        logger.warning(f"Nominatim returned status {resp.status_code}")
-                        return None
+                    # Store in cache
+                    if len(self._cache) >= self._cache_limit:
+                        # Pop oldest
+                        self._cache.pop(next(iter(self._cache)))
+                    self._cache[coord_key] = parsed
+                    return parsed
+                else:
+                    logger.warning(f"Nominatim returned status {resp.status_code}")
+                    return None
             except Exception as e:
                 logger.warning(f"Nominatim reverse geocoding failed: {e}")
                 return None

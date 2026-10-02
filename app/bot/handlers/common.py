@@ -9,6 +9,8 @@ from app.bot.keyboards import (
     get_main_menu,
     get_photos_control_inline_keyboard,
     get_region_confirm_keyboard,
+    get_skip_back_cancel_keyboard,
+    get_skip_cancel_keyboard,
 )
 from app.bot.states import StoreFlowStates
 from app.config import get_settings
@@ -63,10 +65,16 @@ async def process_back_button(message: Message, state: FSMContext, lang: str, ro
         await state.set_state(StoreFlowStates.waiting_for_photos)
         data = await state.get_data()
         photos = data.get("photos", [])
-        await message.answer(
-            t("prompt_photo_next", lang, count=len(photos)),
-            reply_markup=get_photos_control_inline_keyboard(len(photos), lang),
-        )
+        if len(photos) > 0:
+            await message.answer(
+                t("prompt_photo_next", lang, count=len(photos)),
+                reply_markup=get_photos_control_inline_keyboard(len(photos), lang),
+            )
+        else:
+            await message.answer(
+                t("prompt_photo", lang),
+                reply_markup=get_skip_cancel_keyboard(lang),
+            )
     elif current_state in (
         StoreFlowStates.confirm_region.state,
         StoreFlowStates.manual_mahalla.state,
@@ -92,13 +100,13 @@ async def process_back_button(message: Message, state: FSMContext, lang: str, ro
         )
     elif current_state == StoreFlowStates.waiting_for_store_name.state:
         await state.set_state(StoreFlowStates.waiting_for_inn)
-        await message.answer(t("prompt_inn", lang), reply_markup=get_back_cancel_keyboard(lang))
+        await message.answer(t("prompt_inn", lang), reply_markup=get_skip_back_cancel_keyboard(lang))
     elif current_state == StoreFlowStates.waiting_for_phone.state:
         await state.set_state(StoreFlowStates.waiting_for_store_name)
         await message.answer(t("prompt_store_name", lang), reply_markup=get_back_cancel_keyboard(lang))
     elif current_state == StoreFlowStates.summary_confirmation.state:
         await state.set_state(StoreFlowStates.waiting_for_phone)
-        await message.answer(t("prompt_phone", lang), reply_markup=get_back_cancel_keyboard(lang))
+        await message.answer(t("prompt_phone", lang), reply_markup=get_skip_back_cancel_keyboard(lang))
     else:
         await state.clear()
         await message.answer(

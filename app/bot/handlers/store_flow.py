@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 
@@ -13,6 +14,8 @@ from app.bot.keyboards import (
     get_main_menu,
     get_photos_control_inline_keyboard,
     get_region_confirm_keyboard,
+    get_skip_back_cancel_keyboard,
+    get_skip_cancel_keyboard,
     get_summary_keyboard,
 )
 from app.bot.states import StoreFlowStates
@@ -29,6 +32,21 @@ from app.utils.validators import clean_text, normalize_phone, validate_inn, vali
 logger = logging.getLogger(__name__)
 router = Router(name="store_flow_router")
 
+SKIP_ALIASES = [
+    "⏭ o'tkazib yuborish",
+    "⏭ ўтказиб юбориш",
+    "⏭ пропустить",
+    "/skip",
+    "skip",
+    "o'tkazish",
+    "otkazish",
+    "пропустить",
+    "o'tkazib yuborish",
+    "ўтказиб юбориш",
+    "davom etish",
+    "давом этиш",
+]
+
 
 # ------------------ Entry Point ------------------
 @router.message(F.text.in_(["➕ Yangi do'kon", "➕ Янги дўкон", "➕ Новый магазин"]))
@@ -38,11 +56,26 @@ async def start_store_flow(message: Message, state: FSMContext, lang: str):
     await state.set_state(StoreFlowStates.waiting_for_photos)
     await message.answer(
         t("prompt_photo", lang),
-        reply_markup=get_cancel_keyboard(lang),
+        reply_markup=get_skip_cancel_keyboard(lang),
     )
 
 
 # ------------------ Step 1: Photos ------------------
+@router.message(
+    StoreFlowStates.waiting_for_photos,
+    F.text.func(lambda text: (text or "").strip().lower() in SKIP_ALIASES),
+)
+async def skip_photos(message: Message, state: FSMContext, lang: str):
+    data = await state.get_data()
+    photos = data.get("photos", [])
+    await state.update_data(photos=photos)
+    await state.set_state(StoreFlowStates.waiting_for_location)
+    await message.answer(
+        t("prompt_location", lang),
+        reply_markup=get_location_keyboard(lang),
+    )
+
+
 @router.message(StoreFlowStates.waiting_for_photos, F.photo)
 async def process_photo(message: Message, state: FSMContext, lang: str):
     data = await state.get_data()
@@ -97,12 +130,7 @@ async def process_document_photo(message: Message, state: FSMContext, lang: str)
 async def process_location_during_photos(message: Message, state: FSMContext, lang: str):
     data = await state.get_data()
     photos = data.get("photos", [])
-    if not photos:
-        await message.answer(
-            "⚠️ Iltimos, avval do'konning tashqi ko'rinishi rasmini yuboring (kamida 1 ta rasm):",
-            reply_markup=get_cancel_keyboard(lang),
-        )
-        return
+    await state.update_data(photos=photos)
     await state.set_state(StoreFlowStates.waiting_for_location)
     await process_location(message, state, lang)
 
@@ -120,7 +148,7 @@ async def fallback_photos(message: Message, state: FSMContext, lang: str):
     else:
         await message.answer(
             t("invalid_photo", lang),
-            reply_markup=get_cancel_keyboard(lang),
+            reply_markup=get_skip_cancel_keyboard(lang),
         )
 
 
@@ -129,7 +157,7 @@ async def callback_more_photos(callback: CallbackQuery, lang: str):
     await callback.answer()
     await callback.message.answer(
         t("prompt_photo", lang),
-        reply_markup=get_cancel_keyboard(lang),
+        reply_markup=get_skip_cancel_keyboard(lang),
     )
 
 
@@ -172,12 +200,12 @@ async def process_location(message: Message, state: FSMContext, lang: str):
         )
 
         if not mahalla_name:
-            # Mahalla couldn't be detected automatically; mandatory manual entry
+            # Mahalla couldn't be detected automatically; manual entry (or skippable)
             await state.set_state(StoreFlowStates.manual_mahalla)
             await message.answer(
                 f"🏛 Viloyat: {state_name}\n🏙 Tuman: {district_name}\n\n"
                 f"{t('prompt_region_manual_mahalla', lang)}",
-                reply_markup=get_back_cancel_keyboard(lang),
+                reply_markup=get_skip_back_cancel_keyboard(lang),
             )
         else:
             await state.set_state(StoreFlowStates.confirm_region)
@@ -196,7 +224,7 @@ async def process_location(message: Message, state: FSMContext, lang: str):
         await state.set_state(StoreFlowStates.manual_all_region)
         await message.answer(
             t("prompt_region_manual_all", lang),
-            reply_markup=get_back_cancel_keyboard(lang),
+            reply_markup=get_skip_back_cancel_keyboard(lang),
         )
 
 
@@ -212,7 +240,7 @@ async def callback_region_correct(callback: CallbackQuery, state: FSMContext, la
     await state.set_state(StoreFlowStates.waiting_for_inn)
     await callback.message.answer(
         t("prompt_inn", lang),
-        reply_markup=get_back_cancel_keyboard(lang),
+        reply_markup=get_skip_back_cancel_keyboard(lang),
     )
 
 
@@ -222,7 +250,7 @@ async def callback_edit_mahalla(callback: CallbackQuery, state: FSMContext, lang
     await state.set_state(StoreFlowStates.manual_mahalla)
     await callback.message.answer(
         t("prompt_region_manual_mahalla", lang),
-        reply_markup=get_back_cancel_keyboard(lang),
+        reply_markup=get_skip_back_cancel_keyboard(lang),
     )
 
 
@@ -232,7 +260,7 @@ async def callback_edit_all_region(callback: CallbackQuery, state: FSMContext, l
     await state.set_state(StoreFlowStates.manual_all_region)
     await callback.message.answer(
         t("prompt_region_manual_all", lang),
-        reply_markup=get_back_cancel_keyboard(lang),
+        reply_markup=get_skip_back_cancel_keyboard(lang),
     )
 
 
@@ -240,12 +268,12 @@ async def callback_edit_all_region(callback: CallbackQuery, state: FSMContext, l
 async def process_region_confirm_message(message: Message, state: FSMContext, lang: str):
     text = (message.text or "").strip().lower()
 
-    # User confirms with text
-    if any(w in text for w in ["to'g'ri", "to'gri", "togri", "to‘g‘ri", "тўғри", "верно", "да", "ha", "xa", "yes", "ok"]):
+    # User confirms with text or skip
+    if any(w in text for w in ["to'g'ri", "to'gri", "togri", "to‘g‘ri", "тўғри", "верно", "да", "ha", "xa", "yes", "ok"]) or text in SKIP_ALIASES:
         await state.set_state(StoreFlowStates.waiting_for_inn)
         await message.answer(
             t("prompt_inn", lang),
-            reply_markup=get_back_cancel_keyboard(lang),
+            reply_markup=get_skip_back_cancel_keyboard(lang),
         )
         return
 
@@ -260,7 +288,7 @@ async def process_region_confirm_message(message: Message, state: FSMContext, la
         await state.set_state(StoreFlowStates.manual_mahalla)
         await message.answer(
             t("prompt_region_manual_mahalla", lang),
-            reply_markup=get_back_cancel_keyboard(lang),
+            reply_markup=get_skip_back_cancel_keyboard(lang),
         )
         return
 
@@ -273,32 +301,62 @@ async def process_region_confirm_message(message: Message, state: FSMContext, la
 
 @router.message(StoreFlowStates.manual_mahalla)
 async def process_manual_mahalla(message: Message, state: FSMContext, lang: str):
-    mahalla = clean_text(message.text or "", max_length=80)
+    raw_text = (message.text or "").strip()
+    if raw_text.lower() in SKIP_ALIASES or raw_text.lower() in ("-", "yo'q", "yoq", "йўқ", "нет"):
+        await state.update_data(mahalla_name="")
+        await state.set_state(StoreFlowStates.waiting_for_inn)
+        await message.answer(
+            t("prompt_inn", lang),
+            reply_markup=get_skip_back_cancel_keyboard(lang),
+        )
+        return
+
+    mahalla = clean_text(raw_text, max_length=80)
     if len(mahalla) < 2:
-        await message.answer("Iltimos, mahalla nomini to'liqroq kiriting (kamida 2 ta belgi).")
+        await message.answer(
+            "Iltimos, mahalla nomini to'liqroq kiriting (kamida 2 ta belgi) yoki '⏭ O'tkazib yuborish' tugmasini bosing:",
+            reply_markup=get_skip_back_cancel_keyboard(lang),
+        )
         return
 
     await state.update_data(mahalla_name=mahalla)
     await state.set_state(StoreFlowStates.waiting_for_inn)
     await message.answer(
         t("prompt_inn", lang),
-        reply_markup=get_back_cancel_keyboard(lang),
+        reply_markup=get_skip_back_cancel_keyboard(lang),
     )
 
 
 @router.message(StoreFlowStates.manual_all_region)
 async def process_manual_all_region(message: Message, state: FSMContext, lang: str):
-    text = clean_text(message.text or "")
+    raw_text = (message.text or "").strip()
+    if raw_text.lower() in SKIP_ALIASES or raw_text.lower() in ("-", "yo'q", "yoq", "йўқ", "нет"):
+        await state.update_data(
+            state_name="Noma'lum",
+            district_name="Noma'lum",
+            mahalla_name="",
+        )
+        await state.set_state(StoreFlowStates.waiting_for_inn)
+        await message.answer(
+            t("prompt_inn", lang),
+            reply_markup=get_skip_back_cancel_keyboard(lang),
+        )
+        return
+
+    text = clean_text(raw_text)
     parts = [p.strip() for p in text.split(",") if p.strip()]
 
     if len(parts) >= 3:
         state_name, district_name, mahalla_name = parts[0], parts[1], parts[2]
     elif len(parts) == 2:
-        state_name, district_name, mahalla_name = parts[0], parts[1], "Noma'lum"
+        state_name, district_name, mahalla_name = parts[0], parts[1], ""
     elif len(parts) == 1:
-        state_name, district_name, mahalla_name = parts[0], "Noma'lum", "Noma'lum"
+        state_name, district_name, mahalla_name = parts[0], "Noma'lum", ""
     else:
-        await message.answer("Iltimos, hudud nomini to'liq kiriting (masalan: Toshkent sh., Chilonzor tumani, 1-mavze)")
+        await message.answer(
+            "Iltimos, hudud nomini to'liq kiriting (masalan: Toshkent sh., Chilonzor tumani, 1-mavze) yoki '⏭ O'tkazib yuborish' bosing:",
+            reply_markup=get_skip_back_cancel_keyboard(lang),
+        )
         return
 
     await state.update_data(
@@ -309,16 +367,29 @@ async def process_manual_all_region(message: Message, state: FSMContext, lang: s
     await state.set_state(StoreFlowStates.waiting_for_inn)
     await message.answer(
         t("prompt_inn", lang),
-        reply_markup=get_back_cancel_keyboard(lang),
+        reply_markup=get_skip_back_cancel_keyboard(lang),
     )
 
 
 # ------------------ Step 4: INN ------------------
 @router.message(StoreFlowStates.waiting_for_inn)
 async def process_inn(message: Message, state: FSMContext, lang: str):
-    is_valid, inn = validate_inn(message.text or "")
+    raw_text = (message.text or "").strip()
+    if raw_text.lower() in SKIP_ALIASES or raw_text.lower() in ("-", "0", "yo'q", "yoq", "йўқ", "нет"):
+        await state.update_data(inn="")
+        await state.set_state(StoreFlowStates.waiting_for_store_name)
+        await message.answer(
+            t("prompt_store_name", lang),
+            reply_markup=get_back_cancel_keyboard(lang),
+        )
+        return
+
+    is_valid, inn = validate_inn(raw_text)
     if not is_valid:
-        await message.answer(t("invalid_inn", lang))
+        await message.answer(
+            t("invalid_inn", lang),
+            reply_markup=get_skip_back_cancel_keyboard(lang),
+        )
         return
 
     await state.update_data(inn=inn)
@@ -377,14 +448,14 @@ async def callback_dup_save_anyway(callback: CallbackQuery, state: FSMContext, l
 async def process_store_name(message: Message, state: FSMContext, lang: str):
     is_valid, name = validate_store_name(message.text or "")
     if not is_valid:
-        await message.answer(t("invalid_store_name", lang))
+        await message.answer(t("invalid_store_name", lang), reply_markup=get_back_cancel_keyboard(lang))
         return
 
     await state.update_data(store_name=name)
     await state.set_state(StoreFlowStates.waiting_for_phone)
     await message.answer(
         t("prompt_phone", lang),
-        reply_markup=get_back_cancel_keyboard(lang),
+        reply_markup=get_skip_back_cancel_keyboard(lang),
     )
 
 
@@ -392,12 +463,15 @@ async def process_store_name(message: Message, state: FSMContext, lang: str):
 @router.message(StoreFlowStates.waiting_for_phone)
 async def process_phone(message: Message, state: FSMContext, lang: str):
     text = (message.text or "").strip()
-    if text in ("⏭ O'tkazib yuborish", "⏭ Ўтказиб юбориш", "⏭ Пропустить", "/skip"):
+    if text.lower() in SKIP_ALIASES or text.lower() in ("-", "yo'q", "yoq", "йўқ", "нет"):
         phone = ""
     else:
         is_valid, phone = normalize_phone(text)
         if not is_valid:
-            await message.answer(t("invalid_phone", lang))
+            await message.answer(
+                t("invalid_phone", lang),
+                reply_markup=get_skip_back_cancel_keyboard(lang),
+            )
             return
 
     await state.update_data(phone=phone)
@@ -472,33 +546,30 @@ async def callback_save_store(callback: CallbackQuery, state: FSMContext, agent:
         month_str = now_t.strftime("%Y-%m")
         timestamp_str = now_t.strftime("%Y%m%d_%H%M%S")
 
-        drive_urls: list[str] = []
-        drive_file_ids: list[str] = []
-
-        # Download, compress, and upload photos
-        for idx, file_id in enumerate(photos, start=1):
+        # Download, compress, and upload photos in parallel
+        async def process_single_photo(idx: int, file_id: str) -> tuple[str, str]:
             try:
                 file_info = await callback.bot.get_file(file_id)
                 file_io = io.BytesIO()
                 await callback.bot.download_file(file_info.file_path, destination=file_io)
                 raw_bytes = file_io.getvalue()
-
-                # Compress using Pillow
                 compressed_bytes = compress_image(raw_bytes, max_dimension=1600, quality=80)
-
                 filename = f"store_{timestamp_str}_{idx}.jpg"
                 uploaded_id, uploaded_url = await drive_service.upload_image(
                     image_bytes=compressed_bytes,
                     filename=filename,
                     month_str=month_str,
                 )
-                drive_urls.append(uploaded_url)
-                drive_file_ids.append(uploaded_id)
+                return uploaded_url, uploaded_id
             except Exception as e:
                 logger.warning(f"Photo upload fallback for {file_id}: {e}")
-                # In mock/offline test environments without Google Drive credentials
-                drive_urls.append(f"https://drive.google.com/mock/{file_id}")
-                drive_file_ids.append(f"mock_fid_{idx}")
+                return f"https://drive.google.com/mock/{file_id}", f"mock_fid_{idx}"
+
+        results = await asyncio.gather(
+            *[process_single_photo(idx, fid) for idx, fid in enumerate(photos, start=1)]
+        )
+        drive_urls = [r[0] for r in results]
+        drive_file_ids = [r[1] for r in results]
 
         p1_url = drive_urls[0] if len(drive_urls) > 0 else ""
         p2_url = drive_urls[1] if len(drive_urls) > 1 else ""

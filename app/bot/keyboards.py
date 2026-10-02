@@ -79,6 +79,16 @@ def get_cancel_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
     )
 
 
+def get_skip_cancel_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t("btn_skip", lang))],
+            [KeyboardButton(text=t("btn_cancel", lang))],
+        ],
+        resize_keyboard=True,
+    )
+
+
 def get_back_cancel_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -86,6 +96,19 @@ def get_back_cancel_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t("btn_back", lang)),
                 KeyboardButton(text=t("btn_cancel", lang)),
             ]
+        ],
+        resize_keyboard=True,
+    )
+
+
+def get_skip_back_cancel_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t("btn_skip", lang))],
+            [
+                KeyboardButton(text=t("btn_back", lang)),
+                KeyboardButton(text=t("btn_cancel", lang)),
+            ],
         ],
         resize_keyboard=True,
     )

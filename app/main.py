@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from zoneinfo import ZoneInfo
@@ -59,6 +60,7 @@ async def lifespan(app: FastAPI):
 
     # Start sequential background write worker for Google Sheets
     sheets_service.start_worker()
+    asyncio.create_task(sheets_service.warm_cache())
 
     # Start APScheduler jobs
     scheduler.add_job(
