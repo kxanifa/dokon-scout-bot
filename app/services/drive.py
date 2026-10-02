@@ -21,7 +21,7 @@ class DriveService:
         self._credentials = credentials
         self._service = None
         self._folder_cache: dict[str, str] = {}  # "parent_id/name" -> folder_id
-        self._api_lock = asyncio.Semaphore(5)
+        self._api_lock = asyncio.Lock()
 
     def _get_credentials(self) -> Credentials:
         if self._credentials:

@@ -362,7 +362,7 @@ class SheetsService:
     def __init__(self, credentials: Credentials | None = None):
         self._credentials = credentials
         self._service = None
-        self._api_lock = asyncio.Semaphore(10)
+        self._api_lock = asyncio.Lock()
 
         # Caching
         self._cache_stores: list[Store] | None = None
@@ -416,9 +416,11 @@ class SheetsService:
     async def _periodic_cache_refresher(self):
         """Keep caches 100% fresh in background and prevent dead sockets."""
         while True:
-            await asyncio.sleep(180)  # Every 3 minutes
             try:
+                await asyncio.sleep(180)  # Every 3 minutes
                 await self.warm_cache()
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 logger.debug(f"Periodic cache refresh notice: {e}")
 
@@ -828,16 +830,13 @@ class SheetsService:
         return agents.get(telegram_id)
 
     async def warm_cache(self) -> None:
-        """Pre-warm all caches in the background so bot responses are instant."""
+        """Pre-warm all caches sequentially to prevent socket collision so bot responses are instant."""
         try:
             logger.info("Google Sheets cache pre-warming boshlanmoqda...")
-            await asyncio.gather(
-                self._fetch_agents(),
-                self._fetch_settings(),
-                self._fetch_stores(),
-                self._fetch_visits(),
-                return_exceptions=True,
-            )
+            await self._fetch_agents()
+            await self._fetch_settings()
+            await self._fetch_stores()
+            await self._fetch_visits()
             logger.info("Google Sheets cache muvaffaqiyatli xotiraga yuklandi (pre-warmed).")
         except Exception as e:
             logger.warning(f"Cache pre-warming paytida xatolik: {e}")

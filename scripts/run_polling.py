@@ -59,7 +59,15 @@ async def main():
     print("=" * 60 + "\n")
 
     try:
-        await dp.start_polling(bot)
+        while True:
+            try:
+                await dp.start_polling(bot)
+                break
+            except (KeyboardInterrupt, SystemExit):
+                break
+            except Exception as e:
+                logger.error(f"Polling xatosi yuz berdi: {e}. 3 soniyadan so'ng qayta ulanadi...", exc_info=True)
+                await asyncio.sleep(3)
     finally:
         logger.info("Bot to'xtatilmoqda...")
         await sheets_service.stop_worker()
