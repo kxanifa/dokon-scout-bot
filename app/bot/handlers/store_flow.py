@@ -33,12 +33,6 @@ router = Router(name="store_flow_router")
 # ------------------ Entry Point ------------------
 @router.message(F.text.in_(["➕ Yangi do'kon", "➕ Янги дўкон", "➕ Новый магазин"]))
 async def start_store_flow(message: Message, state: FSMContext, lang: str):
-    current_state = await state.get_state()
-    if current_state:
-        # User already has an active flow
-        await message.answer(t("active_flow_exists", lang))
-        return
-
     await state.clear()
     await state.update_data(photos=[], is_visit=False)
     await state.set_state(StoreFlowStates.waiting_for_photos)
@@ -97,6 +91,37 @@ async def process_document_photo(message: Message, state: FSMContext, lang: str)
             )
     else:
         await message.answer(t("invalid_photo", lang))
+
+
+@router.message(StoreFlowStates.waiting_for_photos, F.location)
+async def process_location_during_photos(message: Message, state: FSMContext, lang: str):
+    data = await state.get_data()
+    photos = data.get("photos", [])
+    if not photos:
+        await message.answer(
+            "⚠️ Iltimos, avval do'konning tashqi ko'rinishi rasmini yuboring (kamida 1 ta rasm):",
+            reply_markup=get_cancel_keyboard(lang),
+        )
+        return
+    await state.set_state(StoreFlowStates.waiting_for_location)
+    await process_location(message, state, lang)
+
+
+@router.message(StoreFlowStates.waiting_for_photos)
+async def fallback_photos(message: Message, state: FSMContext, lang: str):
+    data = await state.get_data()
+    photos = data.get("photos", [])
+    count = len(photos)
+    if count > 0:
+        await message.answer(
+            t("prompt_photo_next", lang, count=count),
+            reply_markup=get_photos_control_inline_keyboard(count, lang),
+        )
+    else:
+        await message.answer(
+            t("invalid_photo", lang),
+            reply_markup=get_cancel_keyboard(lang),
+        )
 
 
 @router.callback_query(StoreFlowStates.waiting_for_photos, F.data == "flow:more_photos")
@@ -208,6 +233,41 @@ async def callback_edit_all_region(callback: CallbackQuery, state: FSMContext, l
     await callback.message.answer(
         t("prompt_region_manual_all", lang),
         reply_markup=get_back_cancel_keyboard(lang),
+    )
+
+
+@router.message(StoreFlowStates.confirm_region)
+async def process_region_confirm_message(message: Message, state: FSMContext, lang: str):
+    text = (message.text or "").strip().lower()
+
+    # User confirms with text
+    if any(w in text for w in ["to'g'ri", "to'gri", "togri", "to‘g‘ri", "тўғри", "верно", "да", "ha", "xa", "yes", "ok"]):
+        await state.set_state(StoreFlowStates.waiting_for_inn)
+        await message.answer(
+            t("prompt_inn", lang),
+            reply_markup=get_back_cancel_keyboard(lang),
+        )
+        return
+
+    # User immediately enters 9-digit INN
+    is_valid, _ = validate_inn(message.text or "")
+    if is_valid:
+        await process_inn(message, state, lang)
+        return
+
+    # User wants to edit mahalla
+    if "mahalla" in text:
+        await state.set_state(StoreFlowStates.manual_mahalla)
+        await message.answer(
+            t("prompt_region_manual_mahalla", lang),
+            reply_markup=get_back_cancel_keyboard(lang),
+        )
+        return
+
+    # Otherwise remind them
+    await message.answer(
+        "Iltimos, yuqoridagi **'✅ To'g'ri'** tugmasini bosing yoki do'konning 9 xonali INN raqamini kiriting:",
+        reply_markup=get_region_confirm_keyboard(lang),
     )
 
 
@@ -472,7 +532,11 @@ async def callback_save_store(callback: CallbackQuery, state: FSMContext, agent:
             await notify_new_visit_saved(callback.bot, saved_visit, store_name)
 
             await state.clear()
-            await status_msg.edit_text(t("saved_visit_success", lang, store_id=existing_id))
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+            await callback.message.answer(t("saved_visit_success", lang, store_id=existing_id))
             await callback.message.answer(
                 t("main_menu_prompt", lang),
                 reply_markup=get_main_menu(lang=lang, role=role, webapp_url=webapp_url),
@@ -513,7 +577,12 @@ async def callback_save_store(callback: CallbackQuery, state: FSMContext, agent:
             if today_count == daily_plan:
                 await callback.message.answer(t("plan_completed_congrats", lang, daily_plan=daily_plan))
 
-            await status_msg.edit_text(
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+
+            await callback.message.answer(
                 t("saved_success", lang, id=saved_store.id, today_count=today_count, daily_plan=daily_plan)
             )
             await callback.message.answer(
@@ -524,7 +593,11 @@ async def callback_save_store(callback: CallbackQuery, state: FSMContext, agent:
     except Exception as e:
         logger.error(f"Error saving store: {e}", exc_info=True)
         await state.update_data(is_saving=False)
-        await status_msg.edit_text(
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+        await callback.message.answer(
             f"{t('save_failed', lang)}\n\nXatolik: {str(e)[:100]}",
             reply_markup=get_summary_keyboard(lang),
         )

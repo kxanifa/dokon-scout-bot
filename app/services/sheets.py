@@ -373,7 +373,7 @@ class SheetsService:
         self._cache_agents_time: float = 0.0
         self._cache_settings: dict[str, str] | None = None
         self._cache_settings_time: float = 0.0
-        self._cache_ttl = 60.0  # seconds
+        self._cache_ttl = 600.0  # 10 minutes cache to prevent frequent API calls
 
         # Activity throttle: user_id -> last_updated_epoch
         self._activity_throttle: dict[int, float] = {}
@@ -728,6 +728,8 @@ class SheetsService:
         return dict(agents)
 
     async def get_agent_by_id(self, telegram_id: int) -> Agent | None:
+        if self._cache_agents is not None and telegram_id in self._cache_agents:
+            return self._cache_agents[telegram_id]
         agents = await self.get_agents()
         return agents.get(telegram_id)
 
