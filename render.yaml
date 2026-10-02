@@ -21,3 +21,15 @@ services:
         value: DokonScoutBot/1.0 (contact@dokonscout.uz)
       - key: DEBUG
         value: "0"
+      - key: BOT_TOKEN
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: DRIVE_ROOT_FOLDER_ID
+        sync: false
