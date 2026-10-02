@@ -10,7 +10,12 @@ from app.bot.handlers.store_flow import process_inn, process_location
 from app.bot.states import StoreFlowStates
 from app.services.geocode import parse_address
 from app.services.sheets import Agent, Store, sheets_service
-from app.services.stats import generate_progress_bar, get_agent_stats, get_top_ranking
+from app.services.stats import (
+    generate_progress_bar,
+    get_agent_stats,
+    get_tashkent_now,
+    get_top_ranking,
+)
 from app.utils.validators import normalize_phone, validate_inn, validate_store_name
 
 
@@ -174,10 +179,11 @@ async def test_records_ownership_security():
 
 @pytest.mark.asyncio
 async def test_stats_and_ranking():
+    today_str = get_tashkent_now().strftime("%Y-%m-%d")
     stores = [
-        Store(id=1, agent_id=10, agent_name="Agent 10", date="2026-10-01", status="faol"),
-        Store(id=2, agent_id=10, agent_name="Agent 10", date="2026-10-01", status="faol"),
-        Store(id=3, agent_id=20, agent_name="Agent 20", date="2026-10-01", status="faol"),
+        Store(id=1, agent_id=10, agent_name="Agent 10", date=today_str, status="faol"),
+        Store(id=2, agent_id=10, agent_name="Agent 10", date=today_str, status="faol"),
+        Store(id=3, agent_id=20, agent_name="Agent 20", date=today_str, status="faol"),
     ]
     agents = {
         10: Agent(telegram_id=10, name="Agent 10", daily_plan=20),
