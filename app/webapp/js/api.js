@@ -1,7 +1,26 @@
 const tg = window.Telegram?.WebApp;
 if (tg) {
-  tg.ready();
-  tg.expand();
+  try {
+    tg.ready();
+    tg.expand();
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Check URL parameters for direct auth token (e.g. from Telegram bot /admin link)
+try {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tokenFromUrl = urlParams.get("auth_token") || urlParams.get("token");
+  if (tokenFromUrl) {
+    localStorage.setItem("dokon_admin_token", tokenFromUrl);
+    urlParams.delete("auth_token");
+    urlParams.delete("token");
+    const cleanUrl = window.location.pathname + (urlParams.toString() ? "?" + urlParams.toString() : "");
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+} catch (e) {
+  console.warn("URL token parse error:", e);
 }
 
 function getAuthHeaders() {
@@ -12,13 +31,24 @@ function getAuthHeaders() {
   const initData = tg?.initData || "";
   if (initData) {
     headers["Authorization"] = `tma ${initData}`;
-  } else {
-    // Check URL search params for debug_user_id in development mode
+    return headers;
+  }
+
+  const storedToken = localStorage.getItem("dokon_admin_token");
+  if (storedToken) {
+    headers["Authorization"] = `Bearer ${storedToken}`;
+    return headers;
+  }
+
+  // Check URL search params for debug_user_id in development mode
+  try {
     const urlParams = new URLSearchParams(window.location.search);
     const debugUserId = urlParams.get("debug_user_id");
     if (debugUserId) {
       headers["X-Debug-User-Id"] = debugUserId;
     }
+  } catch (e) {
+    // ignore
   }
 
   return headers;
@@ -37,6 +67,13 @@ async function request(endpoint, options = {}) {
   const response = await fetch(url, config);
 
   if (response.status === 401 || response.status === 403) {
+    if (!tg?.initData) {
+      window.dispatchEvent(
+        new CustomEvent("app:unauthorized", {
+          detail: { endpoint, status: response.status },
+        })
+      );
+    }
     throw new Error("UNAUTHORIZED");
   }
 
@@ -49,6 +86,26 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  login: async (secret) => {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ secret: secret.trim() }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail?.message || "Maxfiy kalit noto'g'ri");
+    }
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem("dokon_admin_token", data.token);
+    }
+    return data;
+  },
+  logout: () => {
+    localStorage.removeItem("dokon_admin_token");
+    window.location.reload();
+  },
   getMe: () => request("/api/me"),
   getMetaRegions: () => request("/api/meta/regions"),
   getStatsSummary: () => request("/api/stats/summary"),

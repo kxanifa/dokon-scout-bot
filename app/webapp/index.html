@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Do'kon Skaut — Admin Paneli</title>
-  <meta name="description" content="Do'kon Skaut Telegram boti va savdo agentlari boshqaruv paneli">
+  <title>Do'kon Skaut — Boshqaruv Paneli</title>
+  <meta name="description" content="Do'kon Skaut Telegram boti va savdo agentlari monitoring boshqaruv paneli">
+
+  <!-- Google Font: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -19,121 +24,231 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/tokens.css?v=1.0.0">
-  <link rel="stylesheet" href="css/app.css?v=1.0.0">
+  <!-- Custom CSS Tokens & App Styles -->
+  <link rel="stylesheet" href="css/tokens.css?v=2.0.0">
+  <link rel="stylesheet" href="css/app.css?v=2.0.0">
 </head>
 <body>
   <div id="app-container">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-title-group">
-        <h1>Do'kon Skaut</h1>
-        <div class="header-subtitle">Boshqaruv Paneli</div>
-      </div>
-      <div id="user-role-badge" class="badge-role">ADMIN</div>
-    </header>
+    <!-- Desktop Sidebar -->
+    <aside class="desktop-sidebar">
+      <div>
+        <div class="sidebar-brand">
+          <div class="brand-icon">🏪</div>
+          <div>
+            <div class="brand-name">Do'kon Skaut</div>
+            <div class="brand-badge">Boshqaruv Paneli</div>
+          </div>
+        </div>
 
-    <!-- 1. Home Screen -->
-    <section id="home-screen" class="screen-view active">
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-title">Jami Do'konlar</div>
-          <div id="kpi-total" class="kpi-value">0</div>
-          <div class="kpi-trend">Doimiy baza</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">Bugun</div>
-          <div id="kpi-today" class="kpi-value">0</div>
-          <div class="kpi-trend">Yangi qo'shilgan</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">Shu Hafta</div>
-          <div id="kpi-week" class="kpi-value">0</div>
-          <div class="kpi-trend">Dushanbadan buyon</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">Faol Agentlar</div>
-          <div id="kpi-active-agents" class="kpi-value">0</div>
-          <div class="kpi-trend">Ro'yxatdan o'tgan</div>
-        </div>
-      </div>
-
-      <div class="glass-card">
-        <div class="card-header">
-          <div class="card-title">📈 30 Kunlik Dinamika</div>
-        </div>
-        <div style="height: 180px; position: relative;">
-          <canvas id="chart-daily-canvas"></canvas>
-        </div>
+        <nav class="sidebar-nav">
+          <button class="sidebar-item active" data-tab="home">
+            <span class="icon">📊</span>
+            <span>Bosh sahifa</span>
+          </button>
+          <button class="sidebar-item" data-tab="map">
+            <span class="icon">🗺</span>
+            <span>Xarita</span>
+          </button>
+          <button class="sidebar-item" data-tab="stores">
+            <span class="icon">🏪</span>
+            <span>Do'konlar</span>
+          </button>
+          <button class="sidebar-item" data-tab="agents">
+            <span class="icon">👥</span>
+            <span>Agentlar</span>
+          </button>
+          <button class="sidebar-item" data-tab="reports">
+            <span class="icon">📄</span>
+            <span>Hisobotlar</span>
+          </button>
+        </nav>
       </div>
 
-      <div class="glass-card">
-        <div class="card-header">
-          <div class="card-title">🏛 Hududlar Bo'yicha (Top)</div>
+      <div class="sidebar-footer">
+        <div class="admin-profile-pill">
+          <div class="admin-avatar">👑</div>
+          <div class="admin-info">
+            <div id="sidebar-admin-name" class="name">SuperAdmin</div>
+            <div id="sidebar-admin-role" class="role">SUPERADMIN</div>
+          </div>
         </div>
-        <div style="height: 200px; position: relative;">
-          <canvas id="chart-regions-canvas"></canvas>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Header -->
+      <header class="app-header">
+        <div class="header-title-group">
+          <div class="header-mobile-brand">
+            <span class="logo-icon">🏪</span>
+          </div>
+          <div>
+            <h1 id="page-title">Do'kon Skaut</h1>
+            <div class="header-subtitle" id="page-subtitle">Real vaqtdagi monitoring</div>
+          </div>
         </div>
-      </div>
 
-      <div class="glass-card">
-        <div class="card-header">
-          <div class="card-title">🏆 Bugungi Eng Faol Agentlar</div>
+        <div class="header-actions">
+          <div id="header-clock" class="header-time-pill">
+            <span>🕒</span>
+            <span id="tashkent-time">Toshkent</span>
+          </div>
+
+          <div id="user-role-badge" class="badge-role">ADMIN</div>
+
+          <button id="btn-open-sheets-header" class="header-icon-btn" title="Google Sheets ochish" onclick="window.app.openSpreadsheet()">
+            📑
+          </button>
+
+          <button id="btn-refresh-data" class="header-icon-btn" title="Yangilash" onclick="window.app.refreshCurrentScreen()">
+            🔄
+          </button>
         </div>
-        <div id="home-top-agents">Yuklanmoqda...</div>
-      </div>
-    </section>
+      </header>
 
-    <!-- 2. Map Screen -->
-    <section id="map-screen" class="screen-view">
-      <div id="leaflet-map"></div>
-    </section>
+      <!-- 1. Home Screen -->
+      <section id="home-screen" class="screen-view active">
+        <div class="kpi-grid">
+          <div class="kpi-card kpi-primary">
+            <div class="kpi-header">
+              <span class="kpi-title">Jami do'konlar</span>
+              <span class="kpi-icon">🏪</span>
+            </div>
+            <div id="kpi-total" class="kpi-value">0</div>
+            <div class="kpi-trend">Bazadagi umumiy soni</div>
+          </div>
 
-    <!-- 3. Stores Screen -->
-    <section id="stores-screen" class="screen-view">
-      <div class="search-wrapper">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="store-search-input" class="search-input" placeholder="Qidirish (Nom, INN, Tel)...">
-      </div>
-      <div id="stores-list-container" class="store-list">
-        <!-- Rendered via JS -->
-      </div>
-    </section>
+          <div class="kpi-card kpi-success">
+            <div class="kpi-header">
+              <span class="kpi-title">Bugun</span>
+              <span class="kpi-icon">⚡️</span>
+            </div>
+            <div id="kpi-today" class="kpi-value">0</div>
+            <div class="kpi-trend">Bugun qo'shilganlar</div>
+          </div>
 
-    <!-- 4. Agents Screen -->
-    <section id="agents-screen" class="screen-view">
-      <div class="segmented-control">
-        <button class="segment-btn active" data-status="active">Faollar</button>
-        <button class="segment-btn" data-status="pending">Kutilmoqda</button>
-        <button class="segment-btn" data-status="blocked">Bloklangan</button>
-      </div>
-      <div id="agents-list-container">
-        <!-- Rendered via JS -->
-      </div>
-    </section>
+          <div class="kpi-card kpi-warning">
+            <div class="kpi-header">
+              <span class="kpi-title">Shu hafta</span>
+              <span class="kpi-icon">📈</span>
+            </div>
+            <div id="kpi-week" class="kpi-value">0</div>
+            <div class="kpi-trend">Dushanbadan boshlab</div>
+          </div>
 
-    <!-- 5. Reports Screen -->
-    <section id="reports-screen" class="screen-view">
-      <div class="glass-card">
-        <div class="card-title" style="margin-bottom: 8px;">📊 Hisobotlar va Eksport</div>
-        <p id="reports-filter-summary" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-          Jami do'konlar ma'lumotlarini yuklab olishingiz mumkin.
-        </p>
-        <button id="btn-export-excel" class="btn btn-primary" onclick="window.app.exportExcelAction()">
-          📥 Excel yuklab olish (Chatga)
-        </button>
-      </div>
+          <div class="kpi-card kpi-info">
+            <div class="kpi-header">
+              <span class="kpi-title">Faol agentlar</span>
+              <span class="kpi-icon">👥</span>
+            </div>
+            <div id="kpi-active-agents" class="kpi-value">0</div>
+            <div class="kpi-trend">Tizimda ishlayotganlar</div>
+          </div>
+        </div>
 
-      <div class="glass-card">
-        <div class="card-title" style="margin-bottom: 12px;">🗺 Hududlar Kesimida Do'konlar</div>
-        <div id="reports-region-tree">
+        <div class="charts-grid">
+          <div class="glass-card">
+            <div class="card-header">
+              <div class="card-title">📈 30 Kunlik Dinamika</div>
+              <div class="card-subtitle">Kunlik kiritilgan do'konlar soni</div>
+            </div>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chart-daily-canvas"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-header">
+              <div class="card-title">🏛 Hududlar Kesimida (Top)</div>
+              <div class="card-subtitle">Viloyatlar bo'yicha taqsimot</div>
+            </div>
+            <div style="height: 220px; position: relative;">
+              <canvas id="chart-regions-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">🏆 Bugungi Eng Faol Agentlar</div>
+            <div class="card-subtitle">Kunlik reja bajarilishi</div>
+          </div>
+          <div id="home-top-agents" style="color: var(--text-secondary); font-size: 14px;">
+            Yuklanmoqda...
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Map Screen -->
+      <section id="map-screen" class="screen-view">
+        <div id="leaflet-map"></div>
+      </section>
+
+      <!-- 3. Stores Screen -->
+      <section id="stores-screen" class="screen-view">
+        <div class="stores-control-bar">
+          <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="store-search-input" class="search-input" placeholder="Do'kon nomi, INN yoki telefon raqami bo'yicha qidirish...">
+          </div>
+
+          <div class="filter-row">
+            <select id="filter-region-select" class="filter-select">
+              <option value="">Barcha viloyatlar</option>
+            </select>
+            <select id="filter-district-select" class="filter-select">
+              <option value="">Barcha tumanlar</option>
+            </select>
+            <button id="btn-clear-filters" class="btn btn-secondary btn-sm" onclick="window.app.clearStoreFilters()">
+              Tozalash
+            </button>
+          </div>
+        </div>
+
+        <div id="stores-list-container" class="store-list">
           <!-- Rendered via JS -->
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Bottom Navigation -->
+      <!-- 4. Agents Screen -->
+      <section id="agents-screen" class="screen-view">
+        <div class="segmented-control">
+          <button class="segment-btn active" data-status="active">✅ Faollar</button>
+          <button class="segment-btn" data-status="pending">⏳ Kutilmoqda</button>
+          <button class="segment-btn" data-status="blocked">🚫 Bloklangan</button>
+        </div>
+
+        <div id="agents-list-container">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+
+      <!-- 5. Reports Screen -->
+      <section id="reports-screen" class="screen-view">
+        <div class="glass-card" style="margin-bottom: var(--space-4);">
+          <div class="card-title" style="margin-bottom: 8px;">📊 Hisobotlar va Excel Eksport</div>
+          <p id="reports-filter-summary" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 18px;">
+            Barcha filtrlangan yoki to'liq do'konlar bazasini Excel formatida shaxsiy Telegram botingizga yuklab olishingiz mumkin.
+          </p>
+          <button id="btn-export-excel" class="btn btn-primary" onclick="window.app.exportExcelAction()">
+            📥 Excel yuklab olish (Telegram chatga)
+          </button>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">🗺 Hududlar Daraxti (Viloyat / Tuman / Mahalla)</div>
+          </div>
+          <div id="reports-region-tree">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Mobile Bottom Navigation -->
     <nav class="bottom-nav">
       <div class="nav-tab active" data-tab="home">
         <div class="icon">📊</div>
@@ -166,10 +281,33 @@
     </div>
   </div>
 
-  <!-- Toast Container -->
+  <!-- Login Modal (Kirish oynasi) -->
+  <div id="login-modal" class="login-modal-backdrop">
+    <div class="login-modal-card">
+      <div class="login-icon-glow">🔐</div>
+      <h2>Do'kon Skaut</h2>
+      <p class="login-desc">Boshqaruv tizimiga kirish uchun maxfiy kalitni kiriting</p>
+
+      <form id="login-form" class="login-form" onsubmit="window.app.handleLogin(event)">
+        <div class="input-group">
+          <input type="password" id="login-secret-input" class="modern-input" placeholder="Admin maxfiy kaliti yoki paroli..." required autocomplete="current-password">
+          <button type="button" id="toggle-pwd-btn" class="toggle-pwd-btn" onclick="window.app.togglePasswordVisibility()">👁</button>
+        </div>
+        <div id="login-error-msg" class="login-error" style="display: none;"></div>
+        <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block">
+          Kirish 🚀
+        </button>
+        <div class="login-hint">
+          💡 Telegram botingizda <code>/admin</code> deb yozsangiz, to'g'ridan-to'g'ri 1-bosishda avtorizatsiyalangan link beriladi.
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- App Script -->
-  <script type="module" src="js/app.js?v=1.0.0"></script>
+  <!-- App Script Entry Point -->
+  <script type="module" src="js/app.js?v=2.0.0"></script>
 </body>
 </html>

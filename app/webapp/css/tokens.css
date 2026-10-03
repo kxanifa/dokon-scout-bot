@@ -1,39 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 :root {
-  /* System / Telegram Theme Variables */
-  --bg-primary: var(--tg-theme-bg-color, #0f172a);
-  --bg-secondary: var(--tg-theme-secondary-bg-color, #1e293b);
-  --bg-card: rgba(30, 41, 59, 0.7);
-  --bg-card-hover: rgba(51, 65, 85, 0.8);
-  --bg-glass: rgba(15, 23, 42, 0.75);
+  /* Typography */
+  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  --text-primary: var(--tg-theme-text-color, #f8fafc);
-  --text-secondary: var(--tg-theme-hint-color, #94a3b8);
+  /* Theme Backgrounds */
+  --bg-primary: #090d16;
+  --bg-secondary: #0f1523;
+  --bg-sidebar: #0a0e18;
+  --bg-card: rgba(17, 24, 39, 0.72);
+  --bg-card-hover: rgba(26, 36, 56, 0.85);
+  --bg-glass: rgba(10, 14, 24, 0.82);
+  --bg-input: rgba(15, 23, 42, 0.85);
+
+  /* Typography Colors */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
   --text-muted: #64748b;
+  --text-on-accent: #ffffff;
 
-  --accent-color: var(--tg-theme-button-color, #3b82f6);
-  --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  --accent-hover: #2563eb;
-  --accent-light: rgba(59, 130, 246, 0.15);
+  /* Brand Accents */
+  --accent-color: #6366f1;
+  --accent-secondary: #3b82f6;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+  --accent-hover: #4f46e5;
+  --accent-light: rgba(99, 102, 241, 0.15);
+  --accent-glow: rgba(99, 102, 241, 0.35);
 
+  /* Status Colors */
   --success-color: #10b981;
-  --success-light: rgba(16, 185, 129, 0.15);
+  --success-light: rgba(16, 185, 129, 0.16);
+  --success-border: rgba(16, 185, 129, 0.3);
+  
   --warning-color: #f59e0b;
-  --warning-light: rgba(245, 158, 11, 0.15);
+  --warning-light: rgba(245, 158, 11, 0.16);
+  --warning-border: rgba(245, 158, 11, 0.3);
+  
   --danger-color: #ef4444;
-  --danger-light: rgba(239, 68, 68, 0.15);
+  --danger-light: rgba(239, 68, 68, 0.16);
+  --danger-border: rgba(239, 68, 68, 0.3);
 
+  --info-color: #06b6d4;
+  --info-light: rgba(6, 182, 212, 0.16);
+
+  /* Borders & Dividers */
   --border-color: rgba(255, 255, 255, 0.08);
-  --border-focus: #3b82f6;
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-focus: #6366f1;
 
-  /* Typography Scale */
-  --font-xs: 11px;
+  /* Font Scale */
+  --font-2xs: 10px;
+  --font-xs: 12px;
   --font-sm: 13px;
   --font-md: 15px;
   --font-lg: 18px;
   --font-xl: 22px;
   --font-2xl: 28px;
+  --font-3xl: 36px;
 
-  /* Spacing */
+  /* Spacing Scale */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -41,39 +66,49 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+  --space-10: 40px;
 
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* Border Radii */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
   --radius-xl: 24px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.25);
-  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+  /* Premium Shadows */
+  --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 24px var(--accent-glow);
+  --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
 
   /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: 350ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Light Mode Overrides when Telegram is light */
+/* Light Mode Support */
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg-primary: var(--tg-theme-bg-color, #f8fafc);
-    --bg-secondary: var(--tg-theme-secondary-bg-color, #f1f5f9);
-    --bg-card: rgba(255, 255, 255, 0.85);
-    --bg-card-hover: rgba(248, 250, 252, 0.95);
-    --bg-glass: rgba(255, 255, 255, 0.8);
+  :root[data-theme="light"] {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #f1f5f9;
+    --bg-sidebar: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.88);
+    --bg-card-hover: rgba(255, 255, 255, 0.98);
+    --bg-glass: rgba(255, 255, 255, 0.85);
+    --bg-input: #f8fafc;
 
-    --text-primary: var(--tg-theme-text-color, #0f172a);
-    --text-secondary: var(--tg-theme-hint-color, #64748b);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
     --text-muted: #94a3b8;
 
     --border-color: rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.12);
+    --shadow-card: 0 6px 20px -2px rgba(0, 0, 0, 0.06);
   }
 }
+

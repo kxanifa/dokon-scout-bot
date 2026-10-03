@@ -186,3 +186,27 @@ def test_superadmin_role_enforcement():
         assert resp2.json() == {"ok": True}
 
     app.dependency_overrides.clear()
+
+
+def test_admin_login_and_bearer_auth():
+    client = TestClient(app)
+    from app.config import get_settings
+    settings = get_settings()
+
+    # 1. Bad secret -> 401
+    bad_resp = client.post("/api/auth/login", json={"secret": "wrong_secret_12345"})
+    assert bad_resp.status_code == 401
+
+    # 2. Valid secret -> 200 with token
+    good_resp = client.post("/api/auth/login", json={"secret": settings.WEBHOOK_SECRET})
+    assert good_resp.status_code == 200
+    data = good_resp.json()
+    assert data["ok"] is True
+    token = data["token"]
+    assert token
+
+    # 3. Access /api/me with Bearer token
+    with patch.object(sheets_service, "get_agent_by_id", return_value=Agent(telegram_id=settings.SUPERADMIN_ID, name="SuperAdmin", role="superadmin", status="active")):
+        me_resp = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
+        assert me_resp.status_code == 200
+        assert me_resp.json()["role"] == "superadmin"

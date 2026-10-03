@@ -1,13 +1,54 @@
 from aiogram import Router
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
 from app.config import get_settings
+from app.services.auth import create_admin_token
 from app.services.backup import run_backup_job
 from app.services.notify import send_daily_report
 from app.services.sheets import sheets_service
 
 router = Router(name="admin_router")
+
+
+@router.message(Command("admin"))
+async def cmd_admin(message: Message, role: str):
+    if role not in ("admin", "superadmin"):
+        await message.answer("Sizda administrator huquqi yo'q.")
+        return
+
+    settings = get_settings()
+    base_url = settings.PUBLIC_BASE_URL.rstrip("/")
+    token = create_admin_token(message.from_user.id, role)
+    webapp_url = f"{base_url}/app"
+    direct_url = f"{base_url}/app?auth_token={token}"
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📊 Mini Appda ochish",
+                    web_app=WebAppInfo(url=webapp_url),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🌐 Brauzerda ochish (Kompyuter/Telefon)",
+                    url=direct_url,
+                )
+            ],
+        ]
+    )
+
+    await message.answer(
+        "👑 <b>Do'kon Skaut — Boshqaruv Paneli</b>\n\n"
+        "Quyidagi usullardan biri orqali admin panelga kiring:\n\n"
+        "1️⃣ <b>Telegram ichida:</b> «📊 Mini Appda ochish» tugmasini bosing.\n"
+        "2️⃣ <b>Kompyuter brauzerida:</b> «🌐 Brauzerda ochish» tugmasi orqali to'g'ridan-to'g'ri avtorizatsiya bilan kiring.\n\n"
+        f"🔑 <i>Brauzerda parol so'ralsa:</i> <code>{settings.WEBHOOK_SECRET}</code>",
+        reply_markup=kb,
+        parse_mode="HTML",
+    )
 
 
 @router.message(Command("agents"))
