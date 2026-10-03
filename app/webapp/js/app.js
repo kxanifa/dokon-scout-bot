@@ -271,34 +271,9 @@ async function loadMapScreen() {
         offset: [0, -10],
       });
 
-      // Rich popup on click
-      const thumbSrc = p.photo1_id ? `/api/photo/${p.photo1_id}?w=120` : "";
-      const thumbHTML = thumbSrc
-        ? `<img src="${thumbSrc}" class="map-popup-thumb" alt="${escapeHTML(p.name)}">`
-        : `<div class="map-popup-thumb-placeholder">🏪</div>`;
-
-      const formattedPDate = formatStoreDate(p.date, p.time);
-      const locStr = [p.district || p.state, p.mahalla].filter(Boolean).join(", ");
-
-      const popupHTML = `
-        <div class="map-popup-card">
-          <div class="map-popup-header" onclick="window.app.openStoreDetailSheet(${p.id})">
-            ${thumbHTML}
-            <div class="map-popup-meta">
-              <div class="map-popup-title">${escapeHTML(p.name)}</div>
-              <div class="map-popup-sub">📍 ${escapeHTML(locStr || "Joylashuv")}</div>
-              ${p.phone ? `<div class="map-popup-phone">📞 ${escapeHTML(p.phone)}</div>` : ""}
-            </div>
-          </div>
-          <button type="button" class="map-popup-btn" onclick="window.app.openStoreDetailSheet(${p.id})">
-            🔍 Batafsil ma'lumot va rasmlar
-          </button>
-        </div>
-      `;
-
-      marker.bindPopup(popupHTML, {
-        className: "custom-leaflet-popup",
-        maxWidth: 280,
+      // Direct click opens the complete store details modal
+      marker.on("click", () => {
+        openStoreDetailSheet(p.id);
       });
 
       state.clusterGroup.addLayer(marker);
@@ -664,11 +639,11 @@ async function openStoreDetailSheet(storeId) {
       </div>
     ` : "";
 
+    state.currentStore = s;
+
     // Map & Action buttons
     const googleMapsUrl = s.lat && s.lon ? `https://www.google.com/maps?q=${s.lat},${s.lon}` : "#";
     const yandexMapsUrl = s.lat && s.lon ? `https://yandex.com/maps/?pt=${s.lon},${s.lat}&z=16&l=map` : "#";
-
-    const serializedStore = JSON.stringify(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
     const actionsHTML = `
       <div class="store-actions-grid">
@@ -678,7 +653,7 @@ async function openStoreDetailSheet(storeId) {
         <a href="${yandexMapsUrl}" target="_blank" class="btn btn-secondary">
           📍 Yandex Xarita
         </a>
-        <button type="button" class="btn btn-secondary" onclick="window.app.openStoreEditModal(${serializedStore})">
+        <button type="button" class="btn btn-secondary" onclick="window.app.openStoreEditModal()">
           ✏️ Tahrirlash
         </button>
         <button type="button" class="btn btn-danger" onclick="window.app.deleteStoreAction(${s.id})">
@@ -731,14 +706,15 @@ function closeLightbox() {
 // ------------------ Store Edit Modal ------------------
 function openStoreEditModal(store) {
   haptic("light");
+  const s = store || state.currentStore;
   const modal = document.getElementById("store-edit-modal");
-  if (!modal || !store) return;
+  if (!modal || !s) return;
 
-  document.getElementById("edit-store-id").value = store.id;
-  document.getElementById("edit-store-name").value = store.name || "";
-  document.getElementById("edit-store-inn").value = store.inn || "";
-  document.getElementById("edit-store-phone").value = store.phone || "";
-  document.getElementById("edit-store-mahalla").value = store.mahalla || "";
+  document.getElementById("edit-store-id").value = s.id;
+  document.getElementById("edit-store-name").value = s.name || "";
+  document.getElementById("edit-store-inn").value = s.inn || "";
+  document.getElementById("edit-store-phone").value = s.phone || "";
+  document.getElementById("edit-store-mahalla").value = s.mahalla || "";
 
   modal.classList.add("active");
 }

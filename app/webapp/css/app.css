@@ -432,6 +432,7 @@ body {
   padding: 0;
   height: calc(100vh - 140px);
   position: relative;
+  z-index: 1;
 }
 
 #leaflet-map {
@@ -766,10 +767,10 @@ body {
 .bottom-sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 100;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 10000;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--transition-normal);
@@ -819,7 +820,7 @@ body {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  z-index: 200;
+  z-index: 15000;
   display: none;
   align-items: center;
   justify-content: center;
@@ -1395,10 +1396,10 @@ body {
 .lightbox-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 300;
+  background: rgba(0, 0, 0, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 12000;
   display: none;
   align-items: center;
   justify-content: center;
@@ -1462,10 +1463,10 @@ body {
 .edit-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 250;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 11000;
   display: none;
   align-items: center;
   justify-content: center;
@@ -1553,6 +1554,7 @@ body {
     max-height: 88vh;
     transform: scale(0.95);
     opacity: 0;
+    transition: transform var(--transition-smooth), opacity var(--transition-smooth);
   }
 
   .bottom-sheet-backdrop.active .bottom-sheet {
