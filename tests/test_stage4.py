@@ -210,3 +210,31 @@ def test_admin_login_and_bearer_auth():
         me_resp = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
         assert me_resp.status_code == 200
         assert me_resp.json()["role"] == "superadmin"
+
+
+def test_store_patch_and_photo_serving():
+    client = TestClient(app)
+    admin = Agent(telegram_id=1, name="SuperAdmin", role="superadmin", status="active")
+    app.dependency_overrides[get_current_admin] = lambda: admin
+
+    # 1. PATCH /api/stores/1
+    with patch.object(sheets_service, "update_store_fields", return_value=True):
+        resp = client.patch("/api/stores/1", json={"name": "Yangi Do'kon Nomi", "phone": "+998901112233"})
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+    # 2. GET /api/photo/{file_id} with known file_id without auth header (for img tags)
+    app.dependency_overrides.clear()
+    store = Store(id=1, name="Test", photo1_id="test_photo_123")
+    with patch.object(sheets_service, "get_stores", return_value=[store]), \
+         patch.object(sheets_service, "get_visits", return_value=[]), \
+         patch("app.api.router.drive_service.get_file_bytes", return_value=b"fake_jpeg_bytes"):
+        p_resp = client.get("/api/photo/test_photo_123")
+        assert p_resp.status_code == 200
+        assert p_resp.content == b"fake_jpeg_bytes"
+
+    # 3. Unknown file_id -> 404
+    with patch.object(sheets_service, "get_stores", return_value=[]), \
+         patch.object(sheets_service, "get_visits", return_value=[]):
+        p_resp2 = client.get("/api/photo/unknown_photo_456")
+        assert p_resp2.status_code == 404

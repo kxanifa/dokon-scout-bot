@@ -281,6 +281,48 @@
     </div>
   </div>
 
+  <!-- Image Lightbox Modal -->
+  <div id="lightbox-modal" class="lightbox-backdrop" onclick="window.app.closeLightbox()">
+    <div class="lightbox-container" onclick="event.stopPropagation()">
+      <button class="lightbox-close-btn" onclick="window.app.closeLightbox()" title="Yopish">✕</button>
+      <img id="lightbox-img" src="" alt="Do'kon rasmi">
+      <div id="lightbox-caption" class="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <!-- Store Edit Modal -->
+  <div id="store-edit-modal" class="edit-modal-backdrop">
+    <div class="edit-modal-card">
+      <div class="edit-modal-header">
+        <div class="edit-modal-title">✏️ Do'kon ma'lumotlarini tahrirlash</div>
+        <button type="button" class="edit-modal-close" onclick="window.app.closeStoreEditModal()">✕</button>
+      </div>
+      <form id="store-edit-form" onsubmit="window.app.submitStoreEdit(event)">
+        <input type="hidden" id="edit-store-id">
+        <div class="edit-field">
+          <label for="edit-store-name">Do'kon nomi *</label>
+          <input type="text" id="edit-store-name" class="modern-input" required>
+        </div>
+        <div class="edit-field">
+          <label for="edit-store-inn">INN (soliq to'lovchi raqami)</label>
+          <input type="text" id="edit-store-inn" class="modern-input" maxlength="9" placeholder="9 xonali son...">
+        </div>
+        <div class="edit-field">
+          <label for="edit-store-phone">Telefon raqam</label>
+          <input type="tel" id="edit-store-phone" class="modern-input" placeholder="+998901234567">
+        </div>
+        <div class="edit-field">
+          <label for="edit-store-mahalla">Mahalla / Manzil</label>
+          <input type="text" id="edit-store-mahalla" class="modern-input" placeholder="Ko'cha yoki mahalla...">
+        </div>
+        <div class="edit-modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="window.app.closeStoreEditModal()">Bekor qilish</button>
+          <button type="submit" id="btn-save-store" class="btn btn-primary">Saqlash 💾</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Login Modal (Kirish oynasi) -->
   <div id="login-modal" class="login-modal-backdrop">
     <div class="login-modal-card">

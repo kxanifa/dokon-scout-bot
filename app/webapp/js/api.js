@@ -130,6 +130,12 @@ export const api = {
   },
 
   getStoreDetail: (id) => request(`/api/stores/${id}`),
+  updateStore: (id, updates) =>
+    request(`/api/stores/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    }),
   deleteStore: (id) => request(`/api/stores/${id}`, { method: "DELETE" }),
 
   getAgents: () => request("/api/agents"),

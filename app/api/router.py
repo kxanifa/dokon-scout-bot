@@ -30,6 +30,19 @@ class PlanUpdateRequest(BaseModel):
     daily_plan: int
 
 
+class StoreUpdateRequest(BaseModel):
+    name: str | None = None
+    inn: str | None = None
+    phone: str | None = None
+    state: str | None = None
+    district: str | None = None
+    mahalla: str | None = None
+
+
+# In-memory photo cache: f"{file_id}_{w}" -> bytes
+_photo_cache: dict[str, bytes] = {}
+
+
 # ------------------ /api/auth/login ------------------
 @api_router.post("/auth/login")
 async def login_admin(req: LoginRequest):
@@ -320,11 +333,17 @@ async def get_stores_map(
         {
             "id": s.id,
             "name": s.name,
+            "inn": s.inn,
+            "phone": s.phone,
             "lat": s.lat,
             "lon": s.lon,
             "state": s.state,
             "district": s.district,
             "mahalla": s.mahalla,
+            "agent_name": s.agent_name,
+            "date": s.date,
+            "time": s.time,
+            "photo1_id": s.photo1_id,
         }
         for s in filtered
         if s.lat and s.lon
@@ -357,6 +376,7 @@ async def get_store_detail(store_id: int, admin: Agent = Depends(get_current_adm
             "mahalla": store.mahalla,
             "lat": store.lat,
             "lon": store.lon,
+            "map_link": store.map_link or f"https://www.google.com/maps?q={store.lat},{store.lon}",
             "date": store.date,
             "time": store.time,
             "agent_id": store.agent_id,
@@ -365,6 +385,9 @@ async def get_store_detail(store_id: int, admin: Agent = Depends(get_current_adm
             "updated_at": store.updated_at,
             "updated_by": store.updated_by,
             "photo_urls": photo_urls,
+            "photo1_id": store.photo1_id,
+            "photo2_id": store.photo2_id,
+            "photo3_id": store.photo3_id,
         },
         "visits": [
             {
@@ -372,12 +395,34 @@ async def get_store_detail(store_id: int, admin: Agent = Depends(get_current_adm
                 "date": v.date,
                 "time": v.time,
                 "agent_name": v.agent_name,
-                "photo1": v.photo1,
-                "photo1_id": v.photo1_id,
+                "agent_id": v.agent_id,
+                "photo_urls": [f"/api/photo/{pid}" for pid in [v.photo1_id, v.photo2_id, v.photo3_id] if pid],
             }
             for v in visits
         ],
     }
+
+
+# ------------------ PATCH /api/stores/{id} ------------------
+@api_router.patch("/stores/{store_id}")
+async def update_store(
+    store_id: int,
+    req: StoreUpdateRequest,
+    admin: Agent = Depends(get_current_admin),
+):
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    if not updates:
+        return {"ok": True}
+
+    success = await sheets_service.update_store_fields(
+        store_id=store_id,
+        updates=updates,
+        updated_by_id=admin.telegram_id,
+        updated_by_name=admin.name,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Do'kon topilmadi.")
+    return {"ok": True}
 
 
 # ------------------ DELETE /api/stores/{id} ------------------
@@ -397,7 +442,7 @@ async def delete_store(store_id: int, admin: Agent = Depends(get_current_admin))
 
 # ------------------ GET /api/photo/{file_id} ------------------
 @api_router.get("/photo/{file_id}")
-async def get_photo(file_id: str, w: int | None = None, admin: Agent = Depends(get_current_admin)):
+async def get_photo(file_id: str, w: int | None = None):
     # Security: Ensure file_id belongs to one of the recorded stores or visits
     stores = await sheets_service.get_stores(include_deleted=True)
     visits = await sheets_service.get_visits()
@@ -416,16 +461,27 @@ async def get_photo(file_id: str, w: int | None = None, admin: Agent = Depends(g
         # Prevent reading unauthorized arbitrary Google Drive files
         raise HTTPException(status_code=404, detail="Rasm fayli topilmadi.")
 
+    cache_key = f"{file_id}_{w or 0}"
+    if cache_key in _photo_cache:
+        return Response(
+            content=_photo_cache[cache_key],
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
     try:
         image_bytes = await drive_service.get_file_bytes(file_id)
         if w and w > 0:
             # Resize thumbnail
             image_bytes = compress_image(image_bytes, max_dimension=w, quality=75)
 
+        if len(_photo_cache) < 400:
+            _photo_cache[cache_key] = image_bytes
+
         return Response(
             content=image_bytes,
             media_type="image/jpeg",
-            headers={"Cache-Control": "private, max-age=86400"},
+            headers={"Cache-Control": "public, max-age=86400"},
         )
     except Exception as e:
         logger.error(f"Error serving photo {file_id}: {e}")

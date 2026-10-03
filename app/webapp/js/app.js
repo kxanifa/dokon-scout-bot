@@ -34,6 +34,26 @@ function escapeHTML(str) {
     .replace(/'/g, "&#039;");
 }
 
+function formatStoreDate(rawDate, rawTime) {
+  if (!rawDate && !rawTime) return "";
+  let dStr = String(rawDate || "").trim();
+  if (/^\d{5}(\.\d+)?$/.test(dStr)) {
+    const days = parseFloat(dStr);
+    const d = new Date(Math.round((days - 25569) * 86400 * 1000));
+    if (!isNaN(d.getTime())) {
+      dStr = d.toISOString().split("T")[0];
+    }
+  }
+  let tStr = String(rawTime || "").trim();
+  if (/^0\.\d+$/.test(tStr)) {
+    const totalSecs = Math.round(parseFloat(tStr) * 86400);
+    const hours = String(Math.floor(totalSecs / 3600)).padStart(2, "0");
+    const mins = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, "0");
+    tStr = `${hours}:${mins}`;
+  }
+  return [dStr, tStr].filter(Boolean).join(" ");
+}
+
 function t(key) {
   return getTranslation(key, state.lang);
 }
@@ -243,7 +263,44 @@ async function loadMapScreen() {
     const bounds = [];
     points.forEach((p) => {
       const marker = window.L.marker([p.lat, p.lon]);
-      marker.on("click", () => openStoreDetailSheet(p.id));
+
+      // Tooltip on hover
+      marker.bindTooltip(escapeHTML(p.name), {
+        direction: "top",
+        className: "custom-map-tooltip",
+        offset: [0, -10],
+      });
+
+      // Rich popup on click
+      const thumbSrc = p.photo1_id ? `/api/photo/${p.photo1_id}?w=120` : "";
+      const thumbHTML = thumbSrc
+        ? `<img src="${thumbSrc}" class="map-popup-thumb" alt="${escapeHTML(p.name)}">`
+        : `<div class="map-popup-thumb-placeholder">🏪</div>`;
+
+      const formattedPDate = formatStoreDate(p.date, p.time);
+      const locStr = [p.district || p.state, p.mahalla].filter(Boolean).join(", ");
+
+      const popupHTML = `
+        <div class="map-popup-card">
+          <div class="map-popup-header" onclick="window.app.openStoreDetailSheet(${p.id})">
+            ${thumbHTML}
+            <div class="map-popup-meta">
+              <div class="map-popup-title">${escapeHTML(p.name)}</div>
+              <div class="map-popup-sub">📍 ${escapeHTML(locStr || "Joylashuv")}</div>
+              ${p.phone ? `<div class="map-popup-phone">📞 ${escapeHTML(p.phone)}</div>` : ""}
+            </div>
+          </div>
+          <button type="button" class="map-popup-btn" onclick="window.app.openStoreDetailSheet(${p.id})">
+            🔍 Batafsil ma'lumot va rasmlar
+          </button>
+        </div>
+      `;
+
+      marker.bindPopup(popupHTML, {
+        className: "custom-leaflet-popup",
+        maxWidth: 280,
+      });
+
       state.clusterGroup.addLayer(marker);
       bounds.push([p.lat, p.lon]);
     });
@@ -284,6 +341,8 @@ async function loadStoresScreen() {
           ? `<img src="${thumbSrc}" style="width: 52px; height: 52px; border-radius: var(--radius-sm); object-fit: cover;" alt="" loading="lazy">`
           : `<div style="width: 52px; height: 52px; border-radius: var(--radius-sm); background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 24px;">🏪</div>`;
 
+        const sDateFormatted = formatStoreDate(s.date, s.time);
+
         return `
         <div class="store-card" onclick="window.app.openStoreDetailSheet(${s.id})">
           ${thumbHTML}
@@ -294,8 +353,8 @@ async function loadStoresScreen() {
               ${s.phone ? `• <span style="color: var(--accent-color);">${escapeHTML(s.phone)}</span>` : ""}
             </div>
             <div class="store-meta">
-              <span>📍 ${escapeHTML(s.district || "")}, ${escapeHTML(s.mahalla || "")}</span>
-              <span class="store-agent-pill">👤 ${escapeHTML(s.agent_name || "Agent")} • 🕒 ${escapeHTML(s.date || "")}</span>
+              <span>📍 ${escapeHTML(s.district || s.state || "")}, ${escapeHTML(s.mahalla || "")}</span>
+              <span class="store-agent-pill">👤 ${escapeHTML(s.agent_name || "Agent")} • 🕒 ${escapeHTML(sDateFormatted || "")}</span>
             </div>
           </div>
           <div style="font-size: 18px; color: var(--text-muted); align-self: center;">›</div>
@@ -475,14 +534,14 @@ async function loadReportsScreen() {
   }
 }
 
-// ------------------ Store Detail Bottom Sheet ------------------
+// ------------------ Store Detail Bottom Sheet / Modal ------------------
 async function openStoreDetailSheet(storeId) {
   haptic("light");
   const backdrop = document.getElementById("bottom-sheet-backdrop");
   const content = document.getElementById("sheet-content");
   if (!backdrop || !content) return;
 
-  content.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Yuklanmoqda...</div>`;
+  content.innerHTML = `<div style="text-align: center; padding: 48px; color: var(--text-secondary);"><div style="font-size: 32px; margin-bottom: 8px;">⏳</div><div>Do'kon ma'lumotlari yuklanmoqda...</div></div>`;
   backdrop.classList.add("active");
 
   try {
@@ -490,55 +549,236 @@ async function openStoreDetailSheet(storeId) {
     const s = data.store;
     const visits = data.visits || [];
 
-    const photosHTML =
-      s.photo_urls && s.photo_urls.length > 0
-        ? `<div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 16px;">
-            ${s.photo_urls.map((url) => `<img src="${url}?w=400" style="height: 190px; border-radius: var(--radius-md); object-fit: cover; box-shadow: var(--shadow-sm);" alt="">`).join("")}
-           </div>`
-        : "";
+    const formattedDate = formatStoreDate(s.date, s.time);
+    const statusBadge = s.status === "o'chirilgan"
+      ? `<span class="badge badge-blocked">🔴 O'chirilgan</span>`
+      : `<span class="badge badge-active">🟢 Faol</span>`;
 
-    const visitsHTML =
-      visits.length > 0
-        ? `<div style="margin-top: 16px;">
-            <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px;">🔁 Qayta tashriflar tarixi (${visits.length}):</div>
-            ${visits
-              .map(
-                (v) => `
-              <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 13px;">
-                🕒 <b>${escapeHTML(v.date)} ${escapeHTML(v.time)}</b> — ${escapeHTML(v.agent_name)}
+    // Photo Gallery
+    const photos = s.photo_urls || [];
+    let photosHTML = "";
+    if (photos.length > 0) {
+      photosHTML = `
+        <div class="store-gallery-container">
+          <div class="store-gallery-label">
+            <span>📸 Rasmlar (${photos.length})</span>
+            <span style="font-size: 11px; text-transform: none; color: var(--text-muted); font-weight: 500;">Kattalashtirish uchun bosing</span>
+          </div>
+          <div class="store-gallery-grid">
+            ${photos.map((url, idx) => `
+              <div class="store-gallery-item" onclick="window.app.openLightbox('${url}', '${escapeHTML(s.name)} - ${idx + 1}-rasm')">
+                <img src="${url}?w=400" alt="Do'kon rasmi" loading="lazy">
+                <span class="store-gallery-badge">${idx + 1}-rasm</span>
+                <span class="store-gallery-zoom-icon">🔍</span>
               </div>
-            `
-              )
-              .join("")}
-           </div>`
-        : "";
+            `).join("")}
+          </div>
+        </div>
+      `;
+    } else {
+      photosHTML = `
+        <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 14px; text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: var(--space-4);">
+          📷 Do'konga rasm biriktirilmagan
+        </div>
+      `;
+    }
 
-    content.innerHTML = `
-      <div style="font-size: 20px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">${escapeHTML(s.name)}</div>
-      <div style="color: var(--text-secondary); font-size: 13px; margin-bottom: 14px;">ID: №${s.id} • INN: <b style="color: var(--text-primary);">${escapeHTML(s.inn || "Yo'q")}</b></div>
+    // Info Grid
+    const infoGridHTML = `
+      <div class="store-info-grid">
+        <div class="store-info-card">
+          <div class="store-info-card-label">🏢 Do'kon nomi</div>
+          <div class="store-info-card-value">${escapeHTML(s.name)}</div>
+        </div>
 
-      ${photosHTML}
+        <div class="store-info-card">
+          <div class="store-info-card-label">🔢 INN raqami</div>
+          <div class="store-info-card-value" style="font-family: monospace; letter-spacing: 0.5px;">${escapeHTML(s.inn || "Kiritilmagan")}</div>
+        </div>
 
-      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-md); margin-bottom: 16px;">
-        <div>📍 <b>Hudud:</b> ${escapeHTML(s.state || "")}, ${escapeHTML(s.district || "")}, ${escapeHTML(s.mahalla || "")}</div>
-        <div>📞 <b>Telefon:</b> ${s.phone ? `<a href="tel:${escapeHTML(s.phone)}" style="color: var(--accent-color); font-weight: 600;">${escapeHTML(s.phone)}</a>` : "Kiritilmagan"}</div>
-        <div>👤 <b>Agent:</b> ${escapeHTML(s.agent_name || "")} (<code>${s.agent_id}</code>)</div>
-        <div>📅 <b>Kiritilgan sana:</b> ${escapeHTML(s.date || "")} ${escapeHTML(s.time || "")}</div>
+        <div class="store-info-card">
+          <div class="store-info-card-label">📞 Telefon</div>
+          <div class="store-info-card-value">
+            ${s.phone ? `<a href="tel:${escapeHTML(s.phone)}">📱 ${escapeHTML(s.phone)}</a>` : "<span style='color: var(--text-muted); font-weight: 500;'>Kiritilmagan</span>"}
+          </div>
+        </div>
+
+        <div class="store-info-card">
+          <div class="store-info-card-label">📍 Viloyat</div>
+          <div class="store-info-card-value">${escapeHTML(s.state || "—")}</div>
+        </div>
+
+        <div class="store-info-card">
+          <div class="store-info-card-label">🏛 Tuman / Shahar</div>
+          <div class="store-info-card-value">${escapeHTML(s.district || "—")}</div>
+        </div>
+
+        <div class="store-info-card">
+          <div class="store-info-card-label">🏡 Mahalla / Manzil</div>
+          <div class="store-info-card-value">${escapeHTML(s.mahalla || "—")}</div>
+        </div>
+
+        <div class="store-info-card">
+          <div class="store-info-card-label">👤 Kiritgan agent</div>
+          <div class="store-info-card-value">${escapeHTML(s.agent_name || "Agent")} <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;">(ID: ${s.agent_id})</span></div>
+        </div>
+
+        <div class="store-info-card">
+          <div class="store-info-card-label">📅 Kiritilgan sana</div>
+          <div class="store-info-card-value">${formattedDate || "—"}</div>
+        </div>
       </div>
+    `;
 
-      ${visitsHTML}
+    // Audit Info
+    const auditHTML = (s.updated_at || s.updated_by) ? `
+      <div class="store-audit-row">
+        <div>🔄 <b>Oxirgi o'zgartirish:</b> ${escapeHTML(s.updated_at || "—")}</div>
+        ${s.updated_by ? `<div>✍️ <b>Tahrirlagan:</b> ${escapeHTML(s.updated_by)}</div>` : ""}
+      </div>
+    ` : "";
 
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
-        <a href="https://www.google.com/maps?q=${s.lat},${s.lon}" target="_blank" class="btn btn-secondary" style="text-decoration: none;">
-          📍 Google Maps'da ochish
+    // Visits
+    const visitsHTML = visits.length > 0 ? `
+      <div style="margin-top: 14px; margin-bottom: 14px;">
+        <div style="font-weight: 700; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+          🔁 Qayta tashriflar tarixi (${visits.length}):
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${visits.map((v) => {
+            const vDate = formatStoreDate(v.date, v.time);
+            const vPhotoHTML = (v.photo_urls && v.photo_urls[0])
+              ? `<img src="${v.photo_urls[0]}?w=100" style="width: 44px; height: 44px; border-radius: var(--radius-sm); object-fit: cover; cursor: pointer;" onclick="window.app.openLightbox('${v.photo_urls[0]}', 'Tashrif rasmi - ${vDate}')" alt="">`
+              : "";
+            return `
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 10px 12px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="font-size: 13px;">
+                  <div style="font-weight: 700; color: var(--text-primary);">🕒 ${escapeHTML(vDate)}</div>
+                  <div style="color: var(--text-secondary); font-size: 12px;">👤 ${escapeHTML(v.agent_name || "Agent")}</div>
+                </div>
+                ${vPhotoHTML}
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    ` : "";
+
+    // Map & Action buttons
+    const googleMapsUrl = s.lat && s.lon ? `https://www.google.com/maps?q=${s.lat},${s.lon}` : "#";
+    const yandexMapsUrl = s.lat && s.lon ? `https://yandex.com/maps/?pt=${s.lon},${s.lat}&z=16&l=map` : "#";
+
+    const serializedStore = JSON.stringify(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+    const actionsHTML = `
+      <div class="store-actions-grid">
+        <a href="${googleMapsUrl}" target="_blank" class="btn btn-secondary">
+          🗺 Google Xarita
         </a>
-        <button class="btn btn-danger" onclick="window.app.deleteStoreAction(${s.id})">
+        <a href="${yandexMapsUrl}" target="_blank" class="btn btn-secondary">
+          📍 Yandex Xarita
+        </a>
+        <button type="button" class="btn btn-secondary" onclick="window.app.openStoreEditModal(${serializedStore})">
+          ✏️ Tahrirlash
+        </button>
+        <button type="button" class="btn btn-danger" onclick="window.app.deleteStoreAction(${s.id})">
           🗑 O'chirish
         </button>
       </div>
     `;
+
+    content.innerHTML = `
+      <div class="store-detail-header">
+        <div>
+          <div class="store-detail-title">${escapeHTML(s.name)}</div>
+          <div class="store-detail-badges">
+            <span class="store-detail-id-badge">ID: #${s.id}</span>
+            ${statusBadge}
+          </div>
+        </div>
+        <button type="button" onclick="window.app.closeBottomSheet()" title="Yopish" style="background: rgba(255,255,255,0.08); border: none; color: var(--text-secondary); width: 32px; height: 32px; border-radius: var(--radius-full); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+      </div>
+
+      ${photosHTML}
+      ${infoGridHTML}
+      ${auditHTML}
+      ${visitsHTML}
+      ${actionsHTML}
+    `;
   } catch (e) {
-    content.innerHTML = `<div style="color: var(--danger-color); padding: 24px;">${escapeHTML(e.message)}</div>`;
+    content.innerHTML = `<div style="color: var(--danger-color); padding: 24px; text-align: center;">${escapeHTML(e.message)}</div>`;
+  }
+}
+
+// ------------------ Lightbox Functions ------------------
+function openLightbox(imgSrc, title = "") {
+  haptic("light");
+  const modal = document.getElementById("lightbox-modal");
+  const img = document.getElementById("lightbox-img");
+  const caption = document.getElementById("lightbox-caption");
+  if (!modal || !img) return;
+
+  img.src = imgSrc;
+  if (caption) caption.textContent = title;
+  modal.classList.add("active");
+}
+
+function closeLightbox() {
+  const modal = document.getElementById("lightbox-modal");
+  if (modal) modal.classList.remove("active");
+}
+
+// ------------------ Store Edit Modal ------------------
+function openStoreEditModal(store) {
+  haptic("light");
+  const modal = document.getElementById("store-edit-modal");
+  if (!modal || !store) return;
+
+  document.getElementById("edit-store-id").value = store.id;
+  document.getElementById("edit-store-name").value = store.name || "";
+  document.getElementById("edit-store-inn").value = store.inn || "";
+  document.getElementById("edit-store-phone").value = store.phone || "";
+  document.getElementById("edit-store-mahalla").value = store.mahalla || "";
+
+  modal.classList.add("active");
+}
+
+function closeStoreEditModal() {
+  const modal = document.getElementById("store-edit-modal");
+  if (modal) modal.classList.remove("active");
+}
+
+async function submitStoreEdit(event) {
+  event.preventDefault();
+  haptic("medium");
+
+  const id = parseInt(document.getElementById("edit-store-id").value, 10);
+  const name = document.getElementById("edit-store-name").value.trim();
+  const inn = document.getElementById("edit-store-inn").value.trim();
+  const phone = document.getElementById("edit-store-phone").value.trim();
+  const mahalla = document.getElementById("edit-store-mahalla").value.trim();
+
+  const saveBtn = document.getElementById("btn-save-store");
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saqlanmoqda...";
+  }
+
+  try {
+    await api.updateStore(id, { name, inn, phone, mahalla });
+    showToast("✅ Do'kon ma'lumotlari yangilandi!");
+    closeStoreEditModal();
+    // Reload open detail and screens
+    openStoreDetailSheet(id);
+    if (state.currentTab === "stores") loadStoresScreen();
+    else if (state.currentTab === "map") loadMapScreen();
+  } catch (e) {
+    alert("Xatolik: " + e.message);
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Saqlash 💾";
+    }
   }
 }
 
@@ -805,6 +1045,15 @@ async function initApp() {
     console.error("Regions load error:", e);
   }
 
+  // Global ESC key listener to close modals
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeLightbox();
+      closeStoreEditModal();
+      closeBottomSheet();
+    }
+  });
+
   // Initial tab load
   switchTab("home");
 }
@@ -814,6 +1063,11 @@ window.app = {
   openStoreDetailSheet,
   closeBottomSheet,
   deleteStoreAction,
+  openLightbox,
+  closeLightbox,
+  openStoreEditModal,
+  closeStoreEditModal,
+  submitStoreEdit,
   approveAgentAction,
   blockAgentAction,
   unblockAgentAction,
