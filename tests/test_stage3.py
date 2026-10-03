@@ -225,7 +225,8 @@ async def test_skip_photos_flow():
     with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
         await skip_photos(msg, state, lang="uz")
         mock_ans.assert_called_once()
-        assert await state.get_state() == StoreFlowStates.waiting_for_location.state
+        # State must NOT advance - photo is now mandatory
+        assert await state.get_state() == StoreFlowStates.waiting_for_photos.state
 
 
 @pytest.mark.asyncio
