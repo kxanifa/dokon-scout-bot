@@ -63,6 +63,21 @@
             <span>Hisobotlar</span>
           </button>
         </nav>
+
+        <div class="sidebar-section-divider"></div>
+        <div class="sidebar-section-label">Bosh Jadvallar & Media</div>
+        <div class="sidebar-external-links">
+          <a id="sidebar-sheets-link" href="https://docs.google.com/spreadsheets/d/1_viE-jgREJS_X6aaq--ykAVOMyDRjO_LZB4XhVtfnG8/edit" target="_blank" class="sidebar-ext-btn sheets-btn" title="Google Sheets jadvalini ochish">
+            <span class="icon">📑</span>
+            <span>Google Sheets</span>
+            <span class="ext-badge">Jadval</span>
+          </a>
+          <a id="sidebar-drive-link" href="https://drive.google.com/drive/folders/1U1tA1bqdCxaxDu0CjEWoXDLRGykAQo-U" target="_blank" class="sidebar-ext-btn drive-btn" title="Google Drive fotosuratlar papkasini ochish">
+            <span class="icon">📁</span>
+            <span>Google Drive</span>
+            <span class="ext-badge">Rasmlar</span>
+          </a>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -91,6 +106,11 @@
         </div>
 
         <div class="header-actions">
+          <div class="header-live-indicator" title="Tizim server bilan real-vaqt rejimida ulangan">
+            <span class="pulse-dot"></span>
+            <span class="live-text">Jonli</span>
+          </div>
+
           <div id="header-clock" class="header-time-pill">
             <span>🕒</span>
             <span id="tashkent-time">Toshkent</span>
@@ -98,9 +118,15 @@
 
           <div id="user-role-badge" class="badge-role">ADMIN</div>
 
-          <button id="btn-open-sheets-header" class="header-icon-btn" title="Google Sheets ochish" onclick="window.app.openSpreadsheet()">
-            📑
-          </button>
+          <a id="btn-open-sheets-header" href="https://docs.google.com/spreadsheets/d/1_viE-jgREJS_X6aaq--ykAVOMyDRjO_LZB4XhVtfnG8/edit" target="_blank" class="header-ext-pill sheets" title="Google Sheets jadvalini yangi oynada ochish">
+            <span class="pill-icon">📑</span>
+            <span class="pill-label">Google Sheets</span>
+          </a>
+
+          <a id="btn-open-drive-header" href="https://drive.google.com/drive/folders/1U1tA1bqdCxaxDu0CjEWoXDLRGykAQo-U" target="_blank" class="header-ext-pill drive" title="Google Drive rasmlar papkasini ochish">
+            <span class="pill-icon">📁</span>
+            <span class="pill-label">Drive</span>
+          </a>
 
           <button id="btn-refresh-data" class="header-icon-btn" title="Yangilash" onclick="window.app.refreshCurrentScreen()">
             🔄
@@ -110,6 +136,34 @@
 
       <!-- 1. Home Screen -->
       <section id="home-screen" class="screen-view active">
+        <!-- Executive Team Target Completion Banner -->
+        <div class="executive-target-card">
+          <div class="target-card-info">
+            <div class="target-title-row">
+              <span class="target-badge">🎯 KUNLIK UMUMIY REJA</span>
+              <span id="target-date-label" class="target-date">Bugun</span>
+            </div>
+            <div class="target-main-stats">
+              <span id="target-completed-count" class="stat-highlight">0</span>
+              <span class="stat-divider">/</span>
+              <span id="target-total-count" class="stat-total">0 ta do'kon</span>
+            </div>
+            <div class="target-subtext">
+              Jami faol agentlar bo'yicha kunlik reja bajarilish darajasi
+            </div>
+          </div>
+          <div class="target-progress-box">
+            <div class="target-percentage" id="target-pct-value">0%</div>
+            <div class="target-progress-bar-bg">
+              <div id="target-progress-bar-fill" class="target-progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <div class="target-agent-status">
+              <span id="target-active-agents-badge">👥 0 ta faol agent</span>
+              <span id="target-idle-agents-badge" class="idle-badge">⚠️ 0 ta ish boshlamagan</span>
+            </div>
+          </div>
+        </div>
+
         <div class="kpi-grid">
           <div class="kpi-card kpi-primary">
             <div class="kpi-header">
@@ -183,31 +237,90 @@
 
       <!-- 2. Map Screen -->
       <section id="map-screen" class="screen-view">
+        <div class="map-floating-hud">
+          <div class="hud-stat-pill">
+            <span class="hud-dot"></span>
+            <span>Xaritada: <strong id="map-store-counter">0</strong> ta do'kon</span>
+          </div>
+          <div class="hud-filter-group">
+            <button id="map-filter-all" class="hud-btn active" onclick="window.app.filterMapStores('all')">Barchasi</button>
+            <button id="map-filter-today" class="hud-btn" onclick="window.app.filterMapStores('today')">⚡️ Faqat bugun</button>
+          </div>
+          <div class="hud-actions">
+            <button id="map-fullscreen-btn" class="hud-icon-btn" title="To'liq ekran" onclick="window.app.toggleMapFullscreen()">⛶</button>
+            <button id="map-recenter-btn" class="hud-icon-btn" title="Markazga qaytarish" onclick="window.app.recenterMap()">🎯</button>
+          </div>
+        </div>
         <div id="leaflet-map"></div>
       </section>
 
       <!-- 3. Stores Screen -->
       <section id="stores-screen" class="screen-view">
         <div class="stores-control-bar">
-          <div class="search-wrapper">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="store-search-input" class="search-input" placeholder="Do'kon nomi, INN yoki telefon raqami bo'yicha qidirish...">
+          <div class="search-and-view-row">
+            <div class="search-wrapper">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="store-search-input" class="search-input" placeholder="Do'kon nomi, INN yoki telefon raqami bo'yicha qidirish...">
+              <span id="stores-filtered-count" class="count-pill">0 ta do'kon</span>
+            </div>
+
+            <div class="view-mode-toggle">
+              <button id="btn-view-table" class="view-btn active" onclick="window.app.setStoreViewMode('table')" title="Jadval ko'rinishi">📋 Jadval</button>
+              <button id="btn-view-grid" class="view-btn" onclick="window.app.setStoreViewMode('grid')" title="Kartochka ko'rinishi">🗂 Kartochka</button>
+            </div>
           </div>
 
-          <div class="filter-row">
-            <select id="filter-region-select" class="filter-select">
-              <option value="">Barcha viloyatlar</option>
-            </select>
-            <select id="filter-district-select" class="filter-select">
-              <option value="">Barcha tumanlar</option>
-            </select>
-            <button id="btn-clear-filters" class="btn btn-secondary btn-sm" onclick="window.app.clearStoreFilters()">
-              Tozalash
-            </button>
+          <div class="quick-filters-row">
+            <div class="date-pills">
+              <span class="pills-label">Sana:</span>
+              <button class="date-pill active" data-period="all" onclick="window.app.setDateFilter('all')">Barchasi</button>
+              <button class="date-pill" data-period="today" onclick="window.app.setDateFilter('today')">⚡️ Bugun</button>
+              <button class="date-pill" data-period="week" onclick="window.app.setDateFilter('week')">📅 Shu hafta</button>
+              <button class="date-pill" data-period="month" onclick="window.app.setDateFilter('month')">🗓 Shu oy</button>
+            </div>
+
+            <div class="filter-row">
+              <select id="filter-region-select" class="filter-select">
+                <option value="">Barcha viloyatlar</option>
+              </select>
+              <select id="filter-district-select" class="filter-select">
+                <option value="">Barcha tumanlar</option>
+              </select>
+              <select id="filter-agent-select" class="filter-select">
+                <option value="">Barcha agentlar</option>
+              </select>
+              <button id="btn-clear-filters" class="btn btn-secondary btn-sm" onclick="window.app.clearStoreFilters()">
+                Tozalash
+              </button>
+            </div>
           </div>
         </div>
 
-        <div id="stores-list-container" class="store-list">
+        <!-- Desktop Enterprise Table View -->
+        <div id="stores-table-view" class="stores-table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">ID</th>
+                <th style="width: 60px;">Foto</th>
+                <th>Do'kon Nomi</th>
+                <th>INN</th>
+                <th>Telefon</th>
+                <th>Hudud / Manzil</th>
+                <th>Agent</th>
+                <th>Sana & Vaqt</th>
+                <th>Holat</th>
+                <th style="text-align: right;">Amallar</th>
+              </tr>
+            </thead>
+            <tbody id="stores-table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile / Grid Cards View -->
+        <div id="stores-list-container" class="store-list" style="display: none;">
           <!-- Rendered via JS -->
         </div>
       </section>
@@ -227,10 +340,38 @@
 
       <!-- 5. Reports Screen -->
       <section id="reports-screen" class="screen-view">
+        <div class="reports-executive-grid">
+          <div class="glass-card executive-action-card">
+            <div class="action-card-header">
+              <div class="action-icon sheets-icon">📑</div>
+              <div>
+                <div class="action-card-title">Google Sheets Bosh Jadvallari</div>
+                <div class="action-card-desc">Barcha do'konlar, tashriflar, agentlar va sozlamalar real-vaqtda to'liq formulalari bilan</div>
+              </div>
+            </div>
+            <a href="https://docs.google.com/spreadsheets/d/1_viE-jgREJS_X6aaq--ykAVOMyDRjO_LZB4XhVtfnG8/edit" target="_blank" class="btn btn-sheets btn-block">
+              Jadvalni ochish ↗
+            </a>
+          </div>
+
+          <div class="glass-card executive-action-card">
+            <div class="action-card-header">
+              <div class="action-icon drive-icon">📁</div>
+              <div>
+                <div class="action-card-title">Google Drive Rasmlar Papkasi</div>
+                <div class="action-card-desc">Agentlar kiritgan barcha do'konlarning original va siqilgan fotosuratlari xotirasi</div>
+              </div>
+            </div>
+            <a href="https://drive.google.com/drive/folders/1U1tA1bqdCxaxDu0CjEWoXDLRGykAQo-U" target="_blank" class="btn btn-drive btn-block">
+              Rasmlar papkasini ochish ↗
+            </a>
+          </div>
+        </div>
+
         <div class="glass-card" style="margin-bottom: var(--space-4);">
-          <div class="card-title" style="margin-bottom: 8px;">📊 Hisobotlar va Excel Eksport</div>
+          <div class="card-title" style="margin-bottom: 8px;">📊 Excel Eksport & Hisobotlar</div>
           <p id="reports-filter-summary" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 18px;">
-            Barcha filtrlangan yoki to'liq do'konlar bazasini Excel formatida shaxsiy Telegram botingizga yuklab olishingiz mumkin.
+            Barcha filtrlangan yoki to'liq do'konlar bazasini Excel (.xlsx) formatida shaxsiy Telegram botingizga yuklab olishingiz mumkin.
           </p>
           <button id="btn-export-excel" class="btn btn-primary" onclick="window.app.exportExcelAction()">
             📥 Excel yuklab olish (Telegram chatga)

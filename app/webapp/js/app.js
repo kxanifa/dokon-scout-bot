@@ -8,10 +8,17 @@ const state = {
   user: null,
   lang: "uz",
   currentTab: "home",
+  viewMode: "table",
+  datePeriod: "all",
+  mapFilter: "all",
+  mapPoints: [],
   filters: {
     viloyat: "",
     tuman: "",
     mahalla: "",
+    agent_id: "",
+    date_from: "",
+    date_to: "",
     q: "",
   },
   regionsTree: [],
@@ -130,21 +137,44 @@ function refreshCurrentScreen() {
 }
 
 function openSpreadsheet() {
-  if (state.user?.spreadsheet_url) {
-    window.open(state.user.spreadsheet_url, "_blank");
-  } else {
-    showToast("Google Sheets havolasi yuklanmoqda...");
-  }
+  const url = state.user?.spreadsheet_url || "https://docs.google.com/spreadsheets/d/1_viE-jgREJS_X6aaq--ykAVOMyDRjO_LZB4XhVtfnG8/edit";
+  window.open(url, "_blank");
+}
+
+function openDrive() {
+  const url = state.user?.drive_folder_url || "https://drive.google.com/drive/folders/1U1tA1bqdCxaxDu0CjEWoXDLRGykAQo-U";
+  window.open(url, "_blank");
 }
 
 // ------------------ 1. Home Screen ------------------
 async function loadHomeScreen() {
   try {
     const summary = await api.getStatsSummary();
-    document.getElementById("kpi-total").textContent = Number(summary.total_stores || 0).toLocaleString();
-    document.getElementById("kpi-today").textContent = Number(summary.today || 0).toLocaleString();
-    document.getElementById("kpi-week").textContent = Number(summary.week || 0).toLocaleString();
-    document.getElementById("kpi-active-agents").textContent = Number(summary.active_agents || 0).toLocaleString();
+    if (summary) {
+      document.getElementById("kpi-total").textContent = Number(summary.total_stores || 0).toLocaleString();
+      document.getElementById("kpi-today").textContent = Number(summary.today || 0).toLocaleString();
+      document.getElementById("kpi-week").textContent = Number(summary.week || 0).toLocaleString();
+      document.getElementById("kpi-active-agents").textContent = Number(summary.active_agents || 0).toLocaleString();
+
+      // Team target completion stats
+      const completed = Number(summary.today || 0);
+      const totalPlan = Number(summary.total_daily_plan || 40);
+      const pct = summary.today_plan_pct !== undefined ? summary.today_plan_pct : (totalPlan > 0 ? Math.round((completed / totalPlan) * 100) : 0);
+
+      const compEl = document.getElementById("target-completed-count");
+      const totEl = document.getElementById("target-total-count");
+      const pctEl = document.getElementById("target-pct-value");
+      const barEl = document.getElementById("target-progress-bar-fill");
+      const activeAgEl = document.getElementById("target-active-agents-badge");
+      const idleAgEl = document.getElementById("target-idle-agents-badge");
+
+      if (compEl) compEl.textContent = completed;
+      if (totEl) totEl.textContent = `${totalPlan} ta do'kon`;
+      if (pctEl) pctEl.textContent = `${pct}%`;
+      if (barEl) barEl.style.width = `${Math.min(pct, 100)}%`;
+      if (activeAgEl) activeAgEl.textContent = `👥 ${summary.active_agents || 0} ta faol agent`;
+      if (idleAgEl) idleAgEl.textContent = `⚠️ ${summary.idle_agents || 0} ta ish boshlamagan`;
+    }
 
     // Charts
     const dailyData = await api.getStatsDaily(30);
@@ -243,6 +273,64 @@ function renderRegionsChart(data) {
 }
 
 // ------------------ 2. Map Screen ------------------
+function filterMapStores(mode) {
+  state.mapFilter = mode;
+  haptic("light");
+  const btnAll = document.getElementById("map-filter-all");
+  const btnToday = document.getElementById("map-filter-today");
+  if (btnAll) btnAll.classList.toggle("active", mode === "all");
+  if (btnToday) btnToday.classList.toggle("active", mode === "today");
+
+  if (!state.mapPoints || !state.clusterGroup) return;
+
+  state.clusterGroup.clearLayers();
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const todayStr = `${year}-${month}-${day}`;
+
+  const filtered = mode === "today"
+    ? state.mapPoints.filter((p) => p.date === todayStr)
+    : state.mapPoints;
+
+  const counterEl = document.getElementById("map-store-counter");
+  if (counterEl) counterEl.textContent = filtered.length;
+
+  const bounds = [];
+  filtered.forEach((p) => {
+    const marker = window.L.marker([p.lat, p.lon]);
+    marker.bindTooltip(escapeHTML(p.name), {
+      direction: "top",
+      className: "custom-map-tooltip",
+      offset: [0, -10],
+    });
+    marker.on("click", () => openStoreDetailSheet(p.id));
+    state.clusterGroup.addLayer(marker);
+    bounds.push([p.lat, p.lon]);
+  });
+
+  if (bounds.length > 0 && state.map) {
+    state.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+  }
+}
+
+function toggleMapFullscreen() {
+  const mapScreen = document.getElementById("map-screen");
+  if (!mapScreen) return;
+  haptic("medium");
+  mapScreen.classList.toggle("fullscreen-map");
+  setTimeout(() => {
+    if (state.map) state.map.invalidateSize();
+  }, 200);
+}
+
+function recenterMap() {
+  if (!state.map) return;
+  haptic("light");
+  state.map.setView([41.311081, 69.240562], 11);
+}
+
 async function loadMapScreen() {
   if (!window.L) return;
 
@@ -258,31 +346,8 @@ async function loadMapScreen() {
 
   try {
     const points = await api.getStoresMap(state.filters);
-    state.clusterGroup.clearLayers();
-
-    const bounds = [];
-    points.forEach((p) => {
-      const marker = window.L.marker([p.lat, p.lon]);
-
-      // Tooltip on hover
-      marker.bindTooltip(escapeHTML(p.name), {
-        direction: "top",
-        className: "custom-map-tooltip",
-        offset: [0, -10],
-      });
-
-      // Direct click opens the complete store details modal
-      marker.on("click", () => {
-        openStoreDetailSheet(p.id);
-      });
-
-      state.clusterGroup.addLayer(marker);
-      bounds.push([p.lat, p.lon]);
-    });
-
-    if (bounds.length > 0) {
-      state.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    }
+    state.mapPoints = points || [];
+    filterMapStores(state.mapFilter || "all");
   } catch (e) {
     console.error("Map load error:", e);
   }
@@ -291,65 +356,213 @@ async function loadMapScreen() {
 // ------------------ 3. Stores Screen ------------------
 let searchDebounceTimeout = null;
 
-async function loadStoresScreen() {
-  const container = document.getElementById("stores-list-container");
-  if (!container) return;
+function setStoreViewMode(mode) {
+  state.viewMode = mode;
+  haptic("light");
+  const btnTable = document.getElementById("btn-view-table");
+  const btnGrid = document.getElementById("btn-view-grid");
+  const tableView = document.getElementById("stores-table-view");
+  const gridView = document.getElementById("stores-list-container");
 
-  container.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--text-secondary);">Yuklanmoqda...</div>`;
+  if (btnTable) btnTable.classList.toggle("active", mode === "table");
+  if (btnGrid) btnGrid.classList.toggle("active", mode === "grid");
+
+  if (mode === "table") {
+    if (tableView) tableView.style.display = "block";
+    if (gridView) gridView.style.display = "none";
+  } else {
+    if (tableView) tableView.style.display = "none";
+    if (gridView) gridView.style.display = "flex";
+  }
+}
+
+function setDateFilter(period) {
+  state.datePeriod = period;
+  haptic("light");
+
+  document.querySelectorAll(".date-pill").forEach((el) => {
+    el.classList.toggle("active", el.getAttribute("data-period") === period);
+  });
+
+  const now = new Date();
+  const formatYMD = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  if (period === "today") {
+    const todayStr = formatYMD(now);
+    state.filters.date_from = todayStr;
+    state.filters.date_to = todayStr;
+  } else if (period === "week") {
+    const day = now.getDay() || 7; // Monday is 1
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - day + 1);
+    state.filters.date_from = formatYMD(monday);
+    state.filters.date_to = formatYMD(now);
+  } else if (period === "month") {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    state.filters.date_from = formatYMD(monthStart);
+    state.filters.date_to = formatYMD(now);
+  } else {
+    state.filters.date_from = "";
+    state.filters.date_to = "";
+  }
+
+  loadStoresScreen();
+}
+
+function copyINN(inn, e) {
+  if (e) e.stopPropagation();
+  if (!inn) {
+    showToast("INN mavjud emas");
+    return;
+  }
+  navigator.clipboard.writeText(String(inn)).then(() => {
+    haptic("success");
+    showToast(`✅ INN nusxalandi: ${inn}`);
+  }).catch(() => {
+    showToast(`INN: ${inn}`);
+  });
+}
+
+async function loadStoresScreen() {
+  const tableBody = document.getElementById("stores-table-body");
+  const cardsContainer = document.getElementById("stores-list-container");
+  const countBadge = document.getElementById("stores-filtered-count");
+
+  if (tableBody) tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 30px; color: var(--text-secondary);">Yuklanmoqda...</td></tr>`;
+  if (cardsContainer) cardsContainer.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--text-secondary);">Yuklanmoqda...</div>`;
 
   try {
-    const data = await api.getStores({ ...state.filters, page: 1, page_size: 60 });
-    if (!data.stores || data.stores.length === 0) {
-      container.innerHTML = `
+    const data = await api.getStores({ ...state.filters, page: 1, page_size: 100 });
+    const stores = data.stores || [];
+
+    if (countBadge) countBadge.textContent = `${stores.length} ta do'kon`;
+
+    if (stores.length === 0) {
+      const emptyHTML = `
         <div style="text-align: center; padding: 48px var(--space-4); color: var(--text-secondary);">
           <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
           <div style="font-weight: 700; font-size: 16px; color: var(--text-primary);">Do'konlar topilmadi</div>
           <div style="font-size: 13px; margin-top: 4px;">Qidiruv yoki filtrlarni o'zgartirib ko'ring.</div>
         </div>`;
+      if (tableBody) tableBody.innerHTML = `<tr><td colspan="10">${emptyHTML}</td></tr>`;
+      if (cardsContainer) cardsContainer.innerHTML = emptyHTML;
       return;
     }
 
-    container.innerHTML = data.stores
-      .map((s) => {
-        const thumbSrc = s.photo1_id ? `/api/photo/${s.photo1_id}?w=120` : "";
-        const thumbHTML = thumbSrc
-          ? `<img src="${thumbSrc}" style="width: 52px; height: 52px; border-radius: var(--radius-sm); object-fit: cover;" alt="" loading="lazy">`
-          : `<div style="width: 52px; height: 52px; border-radius: var(--radius-sm); background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 24px;">🏪</div>`;
+    // 1. Render Table Rows
+    if (tableBody) {
+      tableBody.innerHTML = stores
+        .map((s) => {
+          const thumbSrc = s.photo1_id ? `/api/photo/${s.photo1_id}?w=80` : "";
+          const thumbHTML = thumbSrc
+            ? `<img src="${thumbSrc}" class="table-thumb" alt="" onclick="window.app.openLightbox('${thumbSrc}', '${escapeHTML(s.name)}')">`
+            : `<div class="table-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px;">🏪</div>`;
 
-        const sDateFormatted = formatStoreDate(s.date, s.time);
+          const sDateFormatted = formatStoreDate(s.date, s.time);
+          const innHTML = s.inn
+            ? `<button class="table-copy-inn" onclick="window.app.copyINN('${s.inn}', event)" title="INN nusxalash"><span>${escapeHTML(s.inn)}</span> 📋</button>`
+            : `<span style="color: var(--text-muted); font-size: 12px;">Yo'q</span>`;
 
-        return `
-        <div class="store-card" onclick="window.app.openStoreDetailSheet(${s.id})">
-          ${thumbHTML}
-          <div class="store-main-info">
-            <div class="store-name">${escapeHTML(s.name)}</div>
-            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">
-              INN: <b style="color: var(--text-primary);">${escapeHTML(s.inn || "Yo'q")}</b> 
-              ${s.phone ? `• <span style="color: var(--accent-color);">${escapeHTML(s.phone)}</span>` : ""}
+          const phoneHTML = s.phone
+            ? `<a href="tel:${escapeHTML(s.phone)}" class="table-phone-link" onclick="event.stopPropagation()">📞 ${escapeHTML(s.phone)}</a>`
+            : `<span style="color: var(--text-muted); font-size: 12px;">-</span>`;
+
+          const statusBadge = s.status === "active" || s.status === "faol"
+            ? `<span class="badge-role" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 10px; padding: 2px 8px;">Faol</span>`
+            : `<span class="badge-role" style="background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 10px; padding: 2px 8px;">Arxiv</span>`;
+
+          return `
+            <tr onclick="window.app.openStoreDetailSheet(${s.id})" style="cursor: pointer;">
+              <td style="font-weight: 700; color: var(--text-muted); font-size: 12px;">#${s.id}</td>
+              <td>${thumbHTML}</td>
+              <td>
+                <div class="table-store-name">${escapeHTML(s.name)}</div>
+              </td>
+              <td>${innHTML}</td>
+              <td>${phoneHTML}</td>
+              <td>
+                <div style="font-size: 13px; color: var(--text-primary); font-weight: 600;">${escapeHTML(s.district || s.state || "")}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${escapeHTML(s.mahalla || "")}</div>
+              </td>
+              <td>
+                <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">👤 ${escapeHTML(s.agent_name || "Agent")}</div>
+              </td>
+              <td>
+                <div style="font-size: 12px; color: var(--text-secondary);">${escapeHTML(sDateFormatted || "-")}</div>
+              </td>
+              <td>${statusBadge}</td>
+              <td style="text-align: right;">
+                <button class="table-action-btn" onclick="event.stopPropagation(); window.app.openStoreDetailSheet(${s.id})">Tafsilot ›</button>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    // 2. Render Mobile / Grid Cards
+    if (cardsContainer) {
+      cardsContainer.innerHTML = stores
+        .map((s) => {
+          const thumbSrc = s.photo1_id ? `/api/photo/${s.photo1_id}?w=120` : "";
+          const thumbHTML = thumbSrc
+            ? `<img src="${thumbSrc}" style="width: 52px; height: 52px; border-radius: var(--radius-sm); object-fit: cover;" alt="" loading="lazy">`
+            : `<div style="width: 52px; height: 52px; border-radius: var(--radius-sm); background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 24px;">🏪</div>`;
+
+          const sDateFormatted = formatStoreDate(s.date, s.time);
+
+          return `
+            <div class="store-card" onclick="window.app.openStoreDetailSheet(${s.id})">
+              ${thumbHTML}
+              <div class="store-main-info">
+                <div class="store-name">${escapeHTML(s.name)}</div>
+                <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">
+                  INN: <b style="color: var(--text-primary);">${escapeHTML(s.inn || "Yo'q")}</b> 
+                  ${s.phone ? `• <a href="tel:${escapeHTML(s.phone)}" style="color: var(--accent-color); text-decoration: none;" onclick="event.stopPropagation()">${escapeHTML(s.phone)}</a>` : ""}
+                </div>
+                <div class="store-meta">
+                  <span>📍 ${escapeHTML(s.district || s.state || "")}, ${escapeHTML(s.mahalla || "")}</span>
+                  <span class="store-agent-pill">👤 ${escapeHTML(s.agent_name || "Agent")} • 🕒 ${escapeHTML(sDateFormatted || "")}</span>
+                </div>
+              </div>
+              <div style="font-size: 18px; color: var(--text-muted); align-self: center;">›</div>
             </div>
-            <div class="store-meta">
-              <span>📍 ${escapeHTML(s.district || s.state || "")}, ${escapeHTML(s.mahalla || "")}</span>
-              <span class="store-agent-pill">👤 ${escapeHTML(s.agent_name || "Agent")} • 🕒 ${escapeHTML(sDateFormatted || "")}</span>
-            </div>
-          </div>
-          <div style="font-size: 18px; color: var(--text-muted); align-self: center;">›</div>
-        </div>
-      `;
-      })
-      .join("");
+          `;
+        })
+        .join("");
+    }
   } catch (e) {
-    container.innerHTML = `<div style="text-align: center; padding: 24px; color: var(--danger-color);">${escapeHTML(e.message)}</div>`;
+    console.error("Stores load error:", e);
+    if (tableBody) tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--danger-color);">${escapeHTML(e.message)}</td></tr>`;
+    if (cardsContainer) cardsContainer.innerHTML = `<div style="text-align: center; padding: 24px; color: var(--danger-color);">${escapeHTML(e.message)}</div>`;
   }
 }
 
 function clearStoreFilters() {
   state.filters.viloyat = "";
   state.filters.tuman = "";
+  state.filters.mahalla = "";
+  state.filters.agent_id = "";
+  state.filters.date_from = "";
+  state.filters.date_to = "";
   state.filters.q = "";
+  state.datePeriod = "all";
+
+  document.querySelectorAll(".date-pill").forEach((el) => {
+    el.classList.toggle("active", el.getAttribute("data-period") === "all");
+  });
+
   const qInput = document.getElementById("store-search-input");
   if (qInput) qInput.value = "";
   const regSel = document.getElementById("filter-region-select");
   if (regSel) regSel.value = "";
+  const agSel = document.getElementById("filter-agent-select");
+  if (agSel) agSel.value = "";
   populateDistrictSelect();
   loadStoresScreen();
 }
@@ -970,6 +1183,14 @@ async function initApp() {
     });
   }
 
+  const agSelect = document.getElementById("filter-agent-select");
+  if (agSelect) {
+    agSelect.addEventListener("change", (e) => {
+      state.filters.agent_id = e.target.value;
+      loadStoresScreen();
+    });
+  }
+
   // Agents segment buttons
   document.querySelectorAll(".segment-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1005,6 +1226,20 @@ async function initApp() {
     if (sidebarName) sidebarName.textContent = me.name || "SuperAdmin";
     if (sidebarRole) sidebarRole.textContent = (me.role || "superadmin").toUpperCase();
 
+    // Dynamically update direct spreadsheet and drive URLs if present
+    if (me.spreadsheet_url) {
+      const el1 = document.getElementById("sidebar-sheets-link");
+      const el2 = document.getElementById("btn-open-sheets-header");
+      if (el1) el1.href = me.spreadsheet_url;
+      if (el2) el2.href = me.spreadsheet_url;
+    }
+    if (me.drive_folder_url) {
+      const el1 = document.getElementById("sidebar-drive-link");
+      const el2 = document.getElementById("btn-open-drive-header");
+      if (el1) el1.href = me.drive_folder_url;
+      if (el2) el2.href = me.drive_folder_url;
+    }
+
     hideLoginModal();
   } catch (e) {
     if (e.message === "UNAUTHORIZED") {
@@ -1019,6 +1254,23 @@ async function initApp() {
     populateRegionSelects();
   } catch (e) {
     console.error("Regions load error:", e);
+  }
+
+  // Load Agents into filter dropdown
+  try {
+    const agSelect = document.getElementById("filter-agent-select");
+    if (agSelect) {
+      const agents = await api.getAgents();
+      agSelect.innerHTML = `<option value="">Barcha agentlar</option>`;
+      agents.forEach((ag) => {
+        const opt = document.createElement("option");
+        opt.value = ag.id;
+        opt.textContent = `${ag.name} (${ag.total_count || 0} ta)`;
+        agSelect.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error("Failed to populate agent filter select:", e);
   }
 
   // Global ESC key listener to close modals
@@ -1053,7 +1305,14 @@ window.app = {
   togglePasswordVisibility,
   refreshCurrentScreen,
   openSpreadsheet,
+  openDrive,
   clearStoreFilters,
+  setStoreViewMode,
+  setDateFilter,
+  copyINN,
+  filterMapStores,
+  toggleMapFullscreen,
+  recenterMap,
 };
 
 window.addEventListener("DOMContentLoaded", initApp);

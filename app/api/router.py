@@ -91,6 +91,7 @@ async def get_me(admin: Agent = Depends(get_current_admin)):
     settings = get_settings()
     default_plan = await sheets_service.get_setting("daily_plan_default", "20")
     spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{settings.SPREADSHEET_ID}/edit"
+    drive_folder_url = f"https://drive.google.com/drive/folders/{settings.DRIVE_ROOT_FOLDER_ID}"
     return {
         "id": admin.telegram_id,
         "name": admin.name,
@@ -98,6 +99,7 @@ async def get_me(admin: Agent = Depends(get_current_admin)):
         "lang": admin.lang,
         "daily_plan_default": int(default_plan),
         "spreadsheet_url": spreadsheet_url,
+        "drive_folder_url": drive_folder_url,
     }
 
 
@@ -148,10 +150,20 @@ async def get_stats_summary(admin: Agent = Depends(get_current_admin)):
     visits = await sheets_service.get_visits()
     agents = await sheets_service.get_agents()
 
-    active_agents = sum(1 for a in agents.values() if a.status == "active")
+    active_agents_list = [a for a in agents.values() if a.status == "active" and a.role == "agent"]
+    active_agents = len(active_agents_list)
     today_count = sum(1 for s in stores if s.date == today_str)
     week_count = sum(1 for s in stores if s.date >= monday_str)
     month_count = sum(1 for s in stores if s.date >= month_start_str)
+
+    today_agent_counts: dict[int, int] = {}
+    for s in stores:
+        if s.date == today_str:
+            today_agent_counts[s.agent_id] = today_agent_counts.get(s.agent_id, 0) + 1
+
+    total_daily_plan = sum(a.daily_plan or 20 for a in active_agents_list)
+    today_plan_pct = int((today_count / total_daily_plan) * 100) if total_daily_plan > 0 else 0
+    idle_agents = sum(1 for a in active_agents_list if today_agent_counts.get(a.telegram_id, 0) == 0)
 
     return {
         "total_stores": len(stores),
@@ -159,7 +171,10 @@ async def get_stats_summary(admin: Agent = Depends(get_current_admin)):
         "week": week_count,
         "month": month_count,
         "active_agents": active_agents,
+        "idle_agents": idle_agents,
         "visits_count": len(visits),
+        "total_daily_plan": total_daily_plan,
+        "today_plan_pct": today_plan_pct,
     }
 
 
