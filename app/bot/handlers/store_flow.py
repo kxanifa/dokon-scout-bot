@@ -56,23 +56,20 @@ async def start_store_flow(message: Message, state: FSMContext, lang: str):
     await state.set_state(StoreFlowStates.waiting_for_photos)
     await message.answer(
         t("prompt_photo", lang),
-        reply_markup=get_skip_cancel_keyboard(lang),
+        reply_markup=get_cancel_keyboard(lang),
     )
 
 
-# ------------------ Step 1: Photos ------------------
+# ------------------ Step 1: Photos (MANDATORY) ------------------
 @router.message(
     StoreFlowStates.waiting_for_photos,
     F.text.func(lambda text: (text or "").strip().lower() in SKIP_ALIASES),
 )
 async def skip_photos(message: Message, state: FSMContext, lang: str):
-    data = await state.get_data()
-    photos = data.get("photos", [])
-    await state.update_data(photos=photos)
-    await state.set_state(StoreFlowStates.waiting_for_location)
+    # Photo is mandatory — reject skip attempts
     await message.answer(
-        t("prompt_location", lang),
-        reply_markup=get_location_keyboard(lang),
+        t("photo_required", lang),
+        reply_markup=get_cancel_keyboard(lang),
     )
 
 
@@ -553,7 +550,7 @@ async def callback_save_store(callback: CallbackQuery, state: FSMContext, agent:
                 file_io = io.BytesIO()
                 await callback.bot.download_file(file_info.file_path, destination=file_io)
                 raw_bytes = file_io.getvalue()
-                compressed_bytes = compress_image(raw_bytes, max_dimension=1600, quality=80)
+                compressed_bytes = compress_image(raw_bytes, max_dimension=2560, quality=95)
                 filename = f"store_{timestamp_str}_{idx}.jpg"
                 uploaded_id, uploaded_url = await drive_service.upload_image(
                     image_bytes=compressed_bytes,

@@ -9,6 +9,7 @@ TEXTS: dict[str, str] = {
     "btn_back": "⬅️ Орқага",
     "btn_continue": "Давом этиш ➡️",
     "btn_skip": "⏭ Ўтказиб юбориш",
+    "photo_required": "📸 Расм юбориш мажбурий! Илтимос камида 1 та расм юборинг.",
     "btn_save": "✅ Сақлаш",
     "btn_edit": "✏️ Таҳрирлаш",
     "btn_confirm": "✅ Тасдиқлаш",

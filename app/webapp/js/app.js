@@ -458,7 +458,7 @@ async function loadStoresScreen() {
     if (tableBody) {
       tableBody.innerHTML = stores
         .map((s) => {
-          const thumbSrc = s.photo1_id ? `/api/photo/${s.photo1_id}?w=80` : "";
+          const thumbSrc = s.photo1_id ? `/api/photo/${s.photo1_id}?w=300` : "";
           const thumbHTML = thumbSrc
             ? `<img src="${thumbSrc}" class="table-thumb" alt="" onclick="window.app.openLightbox('${thumbSrc}', '${escapeHTML(s.name)}')">`
             : `<div class="table-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px;">🏪</div>`;
@@ -509,7 +509,7 @@ async function loadStoresScreen() {
     if (cardsContainer) {
       cardsContainer.innerHTML = stores
         .map((s) => {
-          const thumbSrc = s.photo1_id ? `/api/photo/${s.photo1_id}?w=120` : "";
+          const thumbSrc = s.photo1_id ? `/api/photo/${s.photo1_id}?w=400` : "";
           const thumbHTML = thumbSrc
             ? `<img src="${thumbSrc}" style="width: 52px; height: 52px; border-radius: var(--radius-sm); object-fit: cover;" alt="" loading="lazy">`
             : `<div style="width: 52px; height: 52px; border-radius: var(--radius-sm); background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 24px;">🏪</div>`;

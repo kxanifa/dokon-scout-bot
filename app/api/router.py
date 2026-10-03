@@ -488,7 +488,7 @@ async def get_photo(file_id: str, w: int | None = None):
         image_bytes = await drive_service.get_file_bytes(file_id)
         if w and w > 0:
             # Resize thumbnail
-            image_bytes = compress_image(image_bytes, max_dimension=w, quality=75)
+            image_bytes = compress_image(image_bytes, max_dimension=w, quality=90)
 
         if len(_photo_cache) < 400:
             _photo_cache[cache_key] = image_bytes
