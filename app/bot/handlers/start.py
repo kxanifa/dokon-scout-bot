@@ -38,6 +38,15 @@ async def cmd_start(message: Message, state: FSMContext, agent: Agent | None, ro
     )
 
 
+@router.message(RegistrationStates.waiting_for_lang)
+async def waiting_for_lang_text(message: Message, state: FSMContext):
+    """Handles text sent while waiting for language selection (user typed instead of clicking)."""
+    await message.answer(
+        t("welcome_select_lang", "uz"),
+        reply_markup=get_language_inline_keyboard(),
+    )
+
+
 @router.callback_query(F.data.startswith("set_lang:"))
 async def callback_select_lang(callback: CallbackQuery, state: FSMContext, agent: Agent | None, role: str):
     chosen_lang = callback.data.split(":")[1]
@@ -47,8 +56,8 @@ async def callback_select_lang(callback: CallbackQuery, state: FSMContext, agent
     settings = get_settings()
     webapp_url = f"{settings.PUBLIC_BASE_URL}/app"
 
-    # If user is already registered, this is a language switch
-    if agent and agent.status == "active":
+    # If user is already registered (active or pending), this is a language switch
+    if agent and agent.status in ("active", "pending"):
         agent.lang = chosen_lang
         await sheets_service.upsert_agent(agent)
         await callback.message.edit_text(t("lang_changed", chosen_lang))
