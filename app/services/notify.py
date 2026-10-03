@@ -3,7 +3,14 @@ import logging
 from aiogram import Bot
 
 from app.config import get_settings
-from app.services.sheets import Agent, Store, Visit, get_current_tashkent_time, sheets_service
+from app.services.sheets import (
+    Agent,
+    Store,
+    Visit,
+    get_current_tashkent_time,
+    normalize_date_str,
+    sheets_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -113,17 +120,29 @@ async def notify_new_visit_saved(bot: Bot, visit: Visit, store_name: str) -> Non
         logger.error(f"Error in notify_new_visit_saved: {e}", exc_info=True)
 
 
+# In-memory guard to prevent duplicate executions within the same day/process
+_last_sent_report_date: str | None = None
+
+
 async def send_daily_report(bot: Bot, force: bool = False) -> bool:
     """
     Compile and deliver the end-of-day summary report to all active admins.
     Prevents sending duplicate reports on the same calendar day unless force=True.
     """
+    global _last_sent_report_date
     now = get_current_tashkent_time()
     today_str = now.strftime("%Y-%m-%d")
 
-    # Prevent duplicate daily report
-    last_report_date = await sheets_service.get_setting("last_report_date", "")
+    # In-memory fast guard
+    if _last_sent_report_date == today_str and not force:
+        logger.info(f"Bugungi ({today_str}) hisobot in-memory tekshiruvi bo'yicha allaqachon yuborilgan.")
+        return False
+
+    # Prevent duplicate daily report via Google Sheets setting
+    raw_last_report_date = await sheets_service.get_setting("last_report_date", "")
+    last_report_date = normalize_date_str(raw_last_report_date)
     if last_report_date == today_str and not force:
+        _last_sent_report_date = today_str
         logger.info(f"Bugungi ({today_str}) hisobot allaqachon yuborilgan.")
         return False
 
@@ -224,6 +243,7 @@ async def send_daily_report(bot: Bot, force: bool = False) -> bool:
             logger.warning(f"Failed to send daily report to admin {admin.telegram_id}: {e}")
 
     # Mark report as sent for today
+    _last_sent_report_date = today_str
     await sheets_service.set_setting("last_report_date", today_str)
     logger.info(f"Kunlik hisobot ({today_str}) muvaffaqiyatli yuborildi.")
     return True

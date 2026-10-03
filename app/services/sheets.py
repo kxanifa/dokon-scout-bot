@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -68,6 +68,44 @@ def make_hyperlink(url: str, label: str) -> str:
 
 def get_current_tashkent_time() -> datetime:
     return datetime.now(ZoneInfo("Asia/Tashkent"))
+
+
+def normalize_time_str(time_val: Any, default: str = "21:00") -> str:
+    """Normalizes time representation to HH:MM format, handling Excel/Sheets fractions."""
+    if not time_val:
+        return default
+    val_str = str(time_val).strip()
+    try:
+        val_float = float(val_str)
+        if 0.0 <= val_float <= 1.0:
+            total_minutes = int(round(val_float * 24 * 60))
+            hours = (total_minutes // 60) % 24
+            minutes = total_minutes % 60
+            return f"{hours:02d}:{minutes:02d}"
+    except (ValueError, TypeError):
+        pass
+
+    if ":" in val_str:
+        parts = val_str.split(":")
+        if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+            return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+    return default
+
+
+def normalize_date_str(date_val: Any) -> str:
+    """Normalizes date representation to YYYY-MM-DD format, handling Excel/Sheets serial numbers."""
+    if not date_val:
+        return ""
+    val_str = str(date_val).strip()
+    if val_str.isdigit():
+        try:
+            serial_days = int(val_str)
+            if 30000 <= serial_days <= 60000:
+                dt = datetime(1899, 12, 30) + timedelta(days=serial_days)
+                return dt.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+    return val_str
 
 
 @dataclass
@@ -501,7 +539,7 @@ class SheetsService:
         result = service.spreadsheets().values().get(
             spreadsheetId=settings.SPREADSHEET_ID,
             range=range_name,
-            valueRenderOption="UNFORMATTED_VALUE",
+            valueRenderOption="FORMATTED_VALUE",
         ).execute()
         return result.get("values", [])
 
@@ -1013,6 +1051,8 @@ class SheetsService:
         self.invalidate_settings_cache()
 
     async def set_setting(self, key: str, value: str) -> None:
+        if self._cache_settings is not None:
+            self._cache_settings[key] = str(value)
         await self._queue_write(self._set_setting_internal, key, value)
 
 

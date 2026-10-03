@@ -105,3 +105,20 @@ async def test_manual_admin_commands():
         mock_ans.reset_mock()
         await cmd_backup_now(msg_backup)
         assert any("Zaxira nusxasi" in call[0][0] for call in mock_ans.call_args_list)
+
+
+def test_sheets_time_and_date_normalization():
+    from app.services.sheets import normalize_date_str, normalize_time_str
+
+    # Test time normalization (fractions from Google Sheets vs HH:MM)
+    assert normalize_time_str("0.875") == "21:00"
+    assert normalize_time_str("0.5") == "12:00"
+    assert normalize_time_str("21:00") == "21:00"
+    assert normalize_time_str("9:30") == "09:30"
+    assert normalize_time_str(None) == "21:00"
+
+    # Test date normalization (serial days from Google Sheets vs YYYY-MM-DD)
+    assert normalize_date_str("46298") == "2026-10-03"
+    assert normalize_date_str("2026-10-03") == "2026-10-03"
+    assert normalize_date_str("") == ""
+

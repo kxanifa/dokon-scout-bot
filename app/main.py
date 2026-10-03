@@ -14,7 +14,7 @@ from app.bot.dispatcher import create_bot_and_dispatcher
 from app.config import get_settings
 from app.services.backup import run_backup_job
 from app.services.notify import send_daily_report
-from app.services.sheets import get_current_tashkent_time, sheets_service
+from app.services.sheets import get_current_tashkent_time, normalize_time_str, sheets_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,7 +36,8 @@ async def scheduled_daily_report_checker():
     try:
         now = get_current_tashkent_time()
         current_time_str = now.strftime("%H:%M")
-        report_time = await sheets_service.get_setting("report_time", "21:00")
+        raw_report_time = await sheets_service.get_setting("report_time", "21:00")
+        report_time = normalize_time_str(raw_report_time, default="21:00")
 
         if current_time_str >= report_time:
             await send_daily_report(bot, force=False)
