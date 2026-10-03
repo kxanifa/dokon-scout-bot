@@ -32,6 +32,64 @@ async def process_name(message: Message, state: FSMContext):
     )
 
 
+async def _finalize_registration(
+    message: Message,
+    state: FSMContext,
+    phone: str,
+    full_name: str,
+    lang: str,
+):
+    user = message.from_user
+    new_agent = Agent(
+        telegram_id=user.id,
+        name=full_name,
+        phone=phone,
+        username=user.username or "",
+        lang=lang,
+        role="agent",
+        status="active",
+    )
+
+    await sheets_service.upsert_agent(new_agent)
+    await state.clear()
+
+    settings = get_settings()
+    webapp_url = f"{settings.PUBLIC_BASE_URL}/app"
+
+    # Send success message and display the main menu
+    await message.answer(
+        t("reg_success", lang),
+        reply_markup=get_main_menu(lang=lang, role="agent", webapp_url=webapp_url),
+    )
+
+    # Inform superadmin and admins about the new active agent
+    agents = await sheets_service.get_agents()
+    admin_ids = {settings.SUPERADMIN_ID}
+    for ag in agents.values():
+        if ag.role in ("admin", "superadmin") and ag.status == "active":
+            admin_ids.add(ag.telegram_id)
+
+    notify_text = (
+        f"👤 <b>Yangi agent ro'yxatdan o'tdi va faollashtirildi!</b>\n\n"
+        f"🏷 <b>Ism:</b> {full_name}\n"
+        f"📞 <b>Tel:</b> {phone}\n"
+        f"🔗 <b>Username:</b> @{user.username or 'yoqd'}\n"
+        f"🆔 <b>ID:</b> <code>{user.id}</code>\n"
+        f"✅ <b>Holati:</b> Faol (Avtomatik)"
+    )
+
+    for admin_id in admin_ids:
+        if admin_id and admin_id != user.id:
+            try:
+                await message.bot.send_message(
+                    chat_id=admin_id,
+                    text=notify_text,
+                    parse_mode="HTML",
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send admin notification to {admin_id}: {e}")
+
+
 @router.message(RegistrationStates.waiting_for_contact, F.contact)
 async def process_contact(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -47,61 +105,21 @@ async def process_contact(message: Message, state: FSMContext):
     if not phone.startswith("+"):
         phone = "+" + phone
 
-    user = message.from_user
-    new_agent = Agent(
-        telegram_id=user.id,
-        name=full_name,
-        phone=phone,
-        username=user.username or "",
-        lang=lang,
-        role="agent",
-        status="pending",
-    )
-
-    await sheets_service.upsert_agent(new_agent)
-    await state.clear()
-
-    await message.answer(
-        t("reg_pending", lang),
-        reply_markup=ReplyKeyboardRemove(),
-    )
-
-    # Notify all active admins and superadmin
-    settings = get_settings()
-    agents = await sheets_service.get_agents()
-    admin_ids = {settings.SUPERADMIN_ID}
-    for ag in agents.values():
-        if ag.role in ("admin", "superadmin") and ag.status == "active":
-            admin_ids.add(ag.telegram_id)
-
-    notify_text = t(
-        "admin_new_reg_title",
-        "uz",
-        name=full_name,
-        phone=phone,
-        username=user.username or "yo'q",
-        user_id=user.id,
-    )
-
-    for admin_id in admin_ids:
-        if admin_id:
-            try:
-                admin_agent = agents.get(admin_id)
-                admin_lang = admin_agent.lang if admin_agent else "uz"
-                await message.bot.send_message(
-                    chat_id=admin_id,
-                    text=notify_text,
-                    reply_markup=get_admin_approval_keyboard(user.id, admin_lang),
-                    parse_mode="HTML",
-                )
-            except Exception as e:
-                logger.warning(f"Failed to send admin notification to {admin_id}: {e}")
+    await _finalize_registration(message, state, phone, full_name, lang)
 
 
 @router.message(RegistrationStates.waiting_for_contact)
-async def invalid_contact_message(message: Message, state: FSMContext):
+async def process_contact_text(message: Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("chosen_lang", "uz")
+    full_name = data.get("full_name", message.from_user.full_name)
+
+    from app.utils.validators import normalize_phone
+    is_valid, phone = normalize_phone(message.text)
+    if is_valid and phone:
+        await _finalize_registration(message, state, phone, full_name, lang)
+        return
+
     await message.answer(t("invalid_contact", lang))
 
 

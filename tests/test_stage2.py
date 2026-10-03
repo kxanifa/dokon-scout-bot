@@ -165,9 +165,9 @@ async def test_registration_contact_verification(mock_sheets):
     ):
         await process_contact(own_msg, state)
         mock_ans.assert_called_once()
-        assert "adminga yuborildi" in mock_ans.call_args[0][0]
+        assert "muvaffaqiyatli" in mock_ans.call_args[0][0]
         assert 123 in mock_sheets
-        assert mock_sheets[123].status == "pending"
+        assert mock_sheets[123].status == "active"
         assert mock_sheets[123].phone == "+998901234567"
 
 
@@ -214,3 +214,72 @@ async def test_admin_race_condition_approval(mock_sheets):
     ):
         await callback_approve_agent(cb2, role="admin")
         ans2.assert_called_with("Bu so'rov allaqachon ko'rib chiqilgan!", show_alert=True)
+
+
+@pytest.mark.asyncio
+async def test_agent_vs_admin_keyboards_and_stats():
+    from app.bot.handlers.stats import cmd_stats, cmd_top
+    from app.bot.keyboards import get_main_menu
+
+    # 1. Agent main menu must NOT contain statistics or admin panel
+    agent_kb = get_main_menu(lang="uz", role="agent", webapp_url="https://example-live.com/app")
+    all_buttons = [btn.text for row in agent_kb.keyboard for btn in row]
+    assert "➕ Yangi do'kon" in all_buttons
+    assert "📋 Mening yozuvlarim" in all_buttons
+    assert "⚙️ Til" in all_buttons
+    assert "📊 Statistika" not in all_buttons
+    assert "🛠 Admin panel" not in all_buttons
+
+    # 2. Superadmin/Admin main menu MUST contain statistics and admin panel
+    admin_kb = get_main_menu(lang="uz", role="superadmin", webapp_url="https://example-live.com/app")
+    admin_buttons = [btn.text for row in admin_kb.keyboard for btn in row]
+    assert "📊 Statistika" in admin_buttons
+    assert "🛠 Admin panel" in admin_buttons
+
+    # 3. Agent calling /stats or /top gets restricted
+    agent_user = User(id=777, is_bot=False, first_name="Agent User")
+    chat = Chat(id=777, type="private")
+    msg = Message(message_id=99, date=1000, chat=chat, from_user=agent_user, text="/stats")
+
+    with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
+        await cmd_stats(msg, role="agent", lang="uz")
+        mock_ans.assert_called_once()
+        assert "faqat Superadmin uchun" in mock_ans.call_args[0][0]
+
+    with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
+        await cmd_top(msg, role="agent", lang="uz")
+        mock_ans.assert_called_once()
+        assert "faqat Superadmin uchun" in mock_ans.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_unregistered_user_auto_prompt():
+    from app.bot.middlewares import AccessMiddleware
+
+    middleware = AccessMiddleware()
+    handler = AsyncMock()
+
+    user = User(id=888, is_bot=False, first_name="New User")
+    chat = Chat(id=888, type="private")
+    storage = MemoryStorage()
+    key = StorageKey(bot_id=1, chat_id=888, user_id=888)
+    state = FSMContext(storage=storage, key=key)
+
+    msg = Message(message_id=1, date=1000, chat=chat, from_user=user, text="Salom")
+
+    data = {
+        "event_from_user": user,
+        "role": "guest",
+        "status": "unregistered",
+        "lang": "uz",
+        "state": state,
+    }
+
+    with patch.object(Message, "answer", new_callable=AsyncMock) as mock_ans:
+        await middleware(handler, msg, data)
+        # Should prompt with language selection directly
+        mock_ans.assert_called_once()
+        assert "tilni tanlang" in mock_ans.call_args[0][0].lower()
+        current_state = await state.get_state()
+        assert current_state == "RegistrationStates:waiting_for_lang"
+

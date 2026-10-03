@@ -10,22 +10,24 @@ from app.i18n import t
 
 
 def get_main_menu(lang: str = "uz", role: str = "agent", webapp_url: str = "") -> ReplyKeyboardMarkup:
+    # Standard agent menu: adding stores, checking own entries, and language
     keyboard = [
         [KeyboardButton(text=t("btn_new_store", lang))],
-        [
-            KeyboardButton(text=t("btn_my_records", lang)),
-            KeyboardButton(text=t("btn_stats", lang)),
-        ],
+        [KeyboardButton(text=t("btn_my_records", lang))],
         [KeyboardButton(text=t("btn_lang", lang))],
     ]
 
-    if role in ("admin", "superadmin") and webapp_url and "example.com" not in webapp_url and webapp_url.startswith("https://"):
-        keyboard.append([
-            KeyboardButton(
-                text=t("btn_admin_panel", lang),
-                web_app=WebAppInfo(url=webapp_url),
-            )
-        ])
+    # Executive management: Only superadmin and admin have access to statistics and management
+    if role in ("admin", "superadmin"):
+        # Add btn_stats to row 2 alongside btn_my_records
+        keyboard[1].append(KeyboardButton(text=t("btn_stats", lang)))
+        if webapp_url and "example.com" not in webapp_url and webapp_url.startswith("https://"):
+            keyboard.append([
+                KeyboardButton(
+                    text=t("btn_admin_panel", lang),
+                    web_app=WebAppInfo(url=webapp_url),
+                )
+            ])
 
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 

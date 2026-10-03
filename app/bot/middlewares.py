@@ -37,6 +37,11 @@ class UserContextMiddleware(BaseMiddleware):
                 agent.status = "active"
                 await sheets_service.upsert_agent(agent)
 
+            # Auto-activate any legacy pending agent so no user remains locked out
+            if agent.status == "pending":
+                agent.status = "active"
+                asyncio.create_task(sheets_service.upsert_agent(agent))
+
             data["agent"] = agent
             data["lang"] = agent.lang or "uz"
             data["role"] = agent.role
@@ -102,14 +107,22 @@ class AccessMiddleware(BaseMiddleware):
         elif isinstance(event, CallbackQuery) and event.data and event.data.startswith("set_lang:"):
             is_reg_callback = True
 
-        # Unregistered users can only /start or register
+        # Unregistered users can /start or register, or sending any message triggers registration directly
         if status == "unregistered":
             if is_start_cmd or is_reg_callback or is_registering:
                 return await handler(event, data)
             if isinstance(event, Message):
-                await event.answer("Iltimos, avval /start buyrug'ini yuboring.")
+                state: FSMContext = data.get("state")
+                if state:
+                    from app.bot.states import RegistrationStates
+                    await state.set_state(RegistrationStates.waiting_for_lang)
+                from app.bot.keyboards import get_language_inline_keyboard
+                await event.answer(
+                    t("welcome_select_lang", "uz"),
+                    reply_markup=get_language_inline_keyboard(),
+                )
             elif isinstance(event, CallbackQuery):
-                await event.answer("Iltimos, avval /start bosing.", show_alert=True)
+                await event.answer("Iltimos, avval ro'yxatdan o'ting.", show_alert=True)
             return
 
         # Blocked users

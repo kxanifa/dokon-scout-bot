@@ -18,18 +18,14 @@ async def cmd_start(message: Message, state: FSMContext, agent: Agent | None, ro
     settings = get_settings()
     webapp_url = f"{settings.PUBLIC_BASE_URL}/app"
 
-    # If already active agent/admin, show main menu directly
-    if agent and status == "active":
+    # If already agent/admin, show main menu directly
+    if agent and status in ("active", "pending"):
         await message.answer(
             f"{t('main_menu_prompt', lang)}",
             reply_markup=get_main_menu(lang=lang, role=role, webapp_url=webapp_url),
         )
         return
 
-    # If pending or blocked, AccessMiddleware will have handled it, but if somehow here:
-    if agent and status == "pending":
-        await message.answer(t("access_pending", lang))
-        return
     if agent and status == "blocked":
         await message.answer(t("access_blocked", lang))
         return
