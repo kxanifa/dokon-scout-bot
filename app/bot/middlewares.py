@@ -91,6 +91,21 @@ class AccessMiddleware(BaseMiddleware):
         if role == "superadmin":
             return await handler(event, data)
 
+        # Extract the inner event (dp.update.middleware receives Update object)
+        from aiogram.types import Update
+        if isinstance(event, Update):
+            inner_msg = event.message
+            inner_cb = event.callback_query
+        elif isinstance(event, Message):
+            inner_msg = event
+            inner_cb = None
+        elif isinstance(event, CallbackQuery):
+            inner_msg = None
+            inner_cb = event
+        else:
+            inner_msg = None
+            inner_cb = None
+
         # Check if user is in middle of registration
         state: FSMContext = data.get("state")
         current_state = await state.get_state() if state else None
@@ -100,50 +115,47 @@ class AccessMiddleware(BaseMiddleware):
         )
 
         # Check if start command or registration callback
-        is_start_cmd = False
-        is_reg_callback = False
-        if isinstance(event, Message) and event.text and event.text.startswith("/start"):
-            is_start_cmd = True
-        elif isinstance(event, CallbackQuery) and event.data and event.data.startswith("set_lang:"):
-            is_reg_callback = True
+        is_start_cmd = bool(inner_msg and inner_msg.text and inner_msg.text.startswith("/start"))
+        is_reg_callback = bool(inner_cb and inner_cb.data and inner_cb.data.startswith("set_lang:"))
 
-        # Unregistered users can /start or register, or sending any message triggers registration directly
+        # Unregistered users: /start or registration passes through; other messages -> auto show language selection
         if status == "unregistered":
             if is_start_cmd or is_reg_callback or is_registering:
                 return await handler(event, data)
-            if isinstance(event, Message):
-                state: FSMContext = data.get("state")
+            # Any other message: prompt language selection
+            if inner_msg:
                 if state:
                     from app.bot.states import RegistrationStates
                     await state.set_state(RegistrationStates.waiting_for_lang)
                 from app.bot.keyboards import get_language_inline_keyboard
-                await event.answer(
+                await inner_msg.answer(
                     t("welcome_select_lang", "uz"),
                     reply_markup=get_language_inline_keyboard(),
                 )
-            elif isinstance(event, CallbackQuery):
-                await event.answer("Iltimos, avval ro'yxatdan o'ting.", show_alert=True)
+            elif inner_cb:
+                await inner_cb.answer("Iltimos, avval ro'yxatdan o'ting.", show_alert=True)
             return
 
         # Blocked users
         if status == "blocked":
-            msg = t("access_blocked", lang)
-            if isinstance(event, Message):
-                await event.answer(msg)
-            elif isinstance(event, CallbackQuery):
-                await event.answer(msg, show_alert=True)
+            msg_text = t("access_blocked", lang)
+            if inner_msg:
+                await inner_msg.answer(msg_text)
+            elif inner_cb:
+                await inner_cb.answer(msg_text, show_alert=True)
             return
 
-        # Pending users
+        # Pending users (legacy — should be auto-activated by UserContextMiddleware, but safety net)
         if status == "pending":
-            msg = t("access_pending", lang)
-            if isinstance(event, Message):
-                await event.answer(msg)
-            elif isinstance(event, CallbackQuery):
-                await event.answer(msg, show_alert=True)
+            msg_text = t("access_pending", lang)
+            if inner_msg:
+                await inner_msg.answer(msg_text)
+            elif inner_cb:
+                await inner_cb.answer(msg_text, show_alert=True)
             return
 
         return await handler(event, data)
+
 
 
 class ThrottleMiddleware(BaseMiddleware):
