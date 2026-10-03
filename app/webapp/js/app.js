@@ -204,6 +204,10 @@ function renderDailyChart(data) {
 
   if (state.charts.daily) state.charts.daily.destroy();
 
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const textColor = isDark ? "#94a3b8" : "#475569";
+  const gridColor = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(203, 213, 225, 0.45)";
+
   const labels = data.map((d) => d.date.slice(5)); // MM-DD
   const values = data.map((d) => d.count);
 
@@ -215,13 +219,13 @@ function renderDailyChart(data) {
         {
           label: "Do'konlar",
           data: values,
-          borderColor: "#6366f1",
-          backgroundColor: "rgba(99, 102, 241, 0.15)",
+          borderColor: "#2563eb",
+          backgroundColor: "rgba(37, 99, 235, 0.12)",
           fill: true,
           tension: 0.35,
           borderWidth: 2.5,
-          pointRadius: 2.5,
-          pointBackgroundColor: "#6366f1",
+          pointRadius: 3,
+          pointBackgroundColor: "#2563eb",
         },
       ],
     },
@@ -230,8 +234,8 @@ function renderDailyChart(data) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: "#64748b", font: { size: 10 } } },
-        y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" }, ticks: { color: "#64748b", font: { size: 10 } } },
+        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
       },
     },
   });
@@ -243,6 +247,10 @@ function renderRegionsChart(data) {
 
   if (state.charts.regions) state.charts.regions.destroy();
 
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const textColor = isDark ? "#94a3b8" : "#475569";
+  const gridColor = isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(203, 213, 225, 0.45)";
+
   const labels = data.map((d) => d.name);
   const values = data.map((d) => d.count);
 
@@ -253,8 +261,8 @@ function renderRegionsChart(data) {
       datasets: [
         {
           data: values,
-          backgroundColor: "rgba(59, 130, 246, 0.8)",
-          hoverBackgroundColor: "#3b82f6",
+          backgroundColor: "rgba(37, 99, 235, 0.8)",
+          hoverBackgroundColor: "#2563eb",
           borderRadius: 6,
         },
       ],
@@ -265,8 +273,8 @@ function renderRegionsChart(data) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" }, ticks: { color: "#64748b", font: { size: 10 } } },
-        y: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 11, weight: 600 } } },
+        x: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
+        y: { grid: { display: false }, ticks: { color: textColor, font: { size: 11, weight: 600 } } },
       },
     },
   });
@@ -1129,8 +1137,70 @@ function initLiveClock() {
   setInterval(update, 1000);
 }
 
+// ------------------ Theme Management (Dual Mode: Light & Dark) ------------------
+function getPreferredTheme() {
+  const saved = localStorage.getItem("app_theme");
+  if (saved === "light" || saved === "dark") return saved;
+  if (tg && tg.colorScheme) return tg.colorScheme;
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
+  return "light"; // Default clean white & royal blue
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("app_theme", theme);
+
+  const toggleIcon = document.getElementById("theme-toggle-icon");
+  if (toggleIcon) {
+    toggleIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+  }
+  const sidebarIcon = document.getElementById("sidebar-theme-icon");
+  const sidebarText = document.getElementById("sidebar-theme-text");
+  if (sidebarIcon && sidebarText) {
+    sidebarIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+    sidebarText.textContent = theme === "dark" ? "Yorug' rejim" : "Tungi rejim";
+  }
+
+  if (tg) {
+    try {
+      tg.setHeaderColor(theme === "dark" ? "#0d1424" : "#ffffff");
+      tg.setBackgroundColor(theme === "dark" ? "#0a0f1d" : "#f3f6fc");
+    } catch (e) {}
+  }
+
+  refreshChartsTheme(theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "light";
+  const next = current === "dark" ? "light" : "dark";
+  applyTheme(next);
+}
+
+function refreshChartsTheme(theme) {
+  const textColor = theme === "dark" ? "#94a3b8" : "#475569";
+  const gridColor = theme === "dark" ? "rgba(255, 255, 255, 0.06)" : "rgba(203, 213, 225, 0.4)";
+
+  [state.charts.daily, state.charts.regions].forEach((chart) => {
+    if (chart && chart.options) {
+      if (chart.options.scales) {
+        Object.values(chart.options.scales).forEach((scale) => {
+          if (scale.ticks) scale.ticks.color = textColor;
+          if (scale.grid) scale.grid.color = gridColor;
+        });
+      }
+      chart.update();
+    }
+  });
+}
+
 // ------------------ App Initialization ------------------
 async function initApp() {
+  // Apply saved/preferred theme immediately
+  applyTheme(getPreferredTheme());
+
   // Catch unauthorized events to prompt login modal
   window.addEventListener("app:unauthorized", () => {
     showLoginModal();
@@ -1313,6 +1383,8 @@ window.app = {
   filterMapStores,
   toggleMapFullscreen,
   recenterMap,
+  toggleTheme,
+  applyTheme,
 };
 
 window.addEventListener("DOMContentLoaded", initApp);

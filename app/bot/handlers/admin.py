@@ -107,7 +107,7 @@ async def cmd_block(message: Message, role: str):
         await message.answer("Noto'g'ri Telegram ID!")
         return
 
-    if target_id == settings.SUPERADMIN_ID:
+    if settings.is_superadmin(target_id):
         await message.answer("Superadminni bloklab bo'lmaydi!")
         return
     if target_id == message.from_user.id:
@@ -179,7 +179,7 @@ async def cmd_unblock(message: Message, role: str):
 @router.message(Command("addadmin"))
 async def cmd_addadmin(message: Message):
     settings = get_settings()
-    if message.from_user.id != settings.SUPERADMIN_ID:
+    if not settings.is_superadmin(message.from_user.id):
         await message.answer("Bu buyruq faqat Superadmin uchun!")
         return
 
@@ -220,7 +220,7 @@ async def cmd_addadmin(message: Message):
 @router.message(Command("removeadmin"))
 async def cmd_removeadmin(message: Message):
     settings = get_settings()
-    if message.from_user.id != settings.SUPERADMIN_ID:
+    if not settings.is_superadmin(message.from_user.id):
         await message.answer("Bu buyruq faqat Superadmin uchun!")
         return
 
@@ -235,7 +235,7 @@ async def cmd_removeadmin(message: Message):
         await message.answer("Noto'g'ri Telegram ID!")
         return
 
-    if target_id == settings.SUPERADMIN_ID:
+    if settings.is_superadmin(target_id):
         await message.answer("Superadminni o'zidan admin huquqini olib bo'lmaydi!")
         return
 
@@ -257,7 +257,7 @@ async def cmd_removeadmin(message: Message):
 @router.message(Command("setgroup"))
 async def cmd_setgroup(message: Message):
     settings = get_settings()
-    if message.from_user.id != settings.SUPERADMIN_ID:
+    if not settings.is_superadmin(message.from_user.id):
         await message.answer("Bu buyruq faqat Superadmin uchun!")
         return
 
@@ -269,7 +269,7 @@ async def cmd_setgroup(message: Message):
 @router.message(Command("report_now"))
 async def cmd_report_now(message: Message):
     settings = get_settings()
-    if message.from_user.id != settings.SUPERADMIN_ID:
+    if not settings.is_superadmin(message.from_user.id):
         return
 
     await message.answer("⏳ Kunlik hisobot tuzilmoqda va yuborilmoqda...")
@@ -283,7 +283,7 @@ async def cmd_report_now(message: Message):
 @router.message(Command("backup_now"))
 async def cmd_backup_now(message: Message):
     settings = get_settings()
-    if message.from_user.id != settings.SUPERADMIN_ID:
+    if not settings.is_superadmin(message.from_user.id):
         return
 
     await message.answer("⏳ Spreadsheet zaxira nusxasi olinmoqda...")

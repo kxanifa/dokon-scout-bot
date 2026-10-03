@@ -1,101 +1,192 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-:root {
-  /* Typography */
+/* ==========================================================================
+   DO'KON SKAUT DESIGN SYSTEM — UNIFIED TOKENS
+   Theme 1: Light Mode — Clean White & Royal Blue (Oq va Ko'k zamonaviy dizayn)
+   Theme 2: Dark Mode  — Midnight Navy & Sapphire Blue (Jonli Ko'k-Tungi dizayn)
+   ========================================================================== */
+
+/* DEFAULT: LIGHT MODE (Oq va Ko'k toza, jonli dizayn) */
+:root,
+[data-theme="light"] {
   --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* Theme Backgrounds */
-  --bg-primary: #070b14;
-  --bg-secondary: #0d1220;
-  --bg-sidebar: #080c18;
-  --bg-card: rgba(14, 20, 38, 0.75);
-  --bg-card-hover: rgba(20, 30, 55, 0.88);
-  --bg-glass: rgba(8, 12, 24, 0.85);
-  --bg-input: rgba(12, 18, 36, 0.90);
+  /* Surfaces & Backgrounds */
+  --bg-primary:    #f3f6fc;
+  --bg-secondary:  #ffffff;
+  --bg-sidebar:    #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-hover: #f8faff;
+  --bg-glass:      rgba(255, 255, 255, 0.94);
+  --bg-input:      #f8fafc;
+  --bg-surface:    #eef3fa;
+  --bg-surface-hover: #e2eaf5;
 
-  /* Typography Colors */
-  --text-primary: #f1f5ff;
-  --text-secondary: #8fa3c0;
-  --text-muted: #526480;
+  /* Typography */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #8291a7;
   --text-on-accent: #ffffff;
 
-  /* Brand Accents */
-  --accent-color: #7c6bf0;
-  --accent-secondary: #4f8ef7;
-  --accent-gradient: linear-gradient(135deg, #7c6bf0 0%, #4f8ef7 100%);
-  --accent-hover: #6457d8;
-  --accent-light: rgba(124, 107, 240, 0.14);
-  --accent-glow: rgba(124, 107, 240, 0.45);
-  --accent-neon: 0 0 20px rgba(124, 107, 240, 0.6), 0 0 40px rgba(124, 107, 240, 0.3);
+  /* Brand Accent: Royal Blue (Yagona brend rangi) */
+  --accent:          #2563eb;
+  --accent-dim:      #1d4ed8;
+  --accent-gradient: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  --accent-light:    rgba(37, 99, 235, 0.08);
+  --accent-border:   rgba(37, 99, 235, 0.22);
+  --accent-glow:     rgba(37, 99, 235, 0.25);
+  --accent-color:    #2563eb;
+  --accent-secondary:#3b82f6;
+  --accent-hover:    #1d4ed8;
 
   /* Status Colors */
-  --success-color: #10d9a0;
-  --success-light: rgba(16, 217, 160, 0.13);
-  --success-border: rgba(16, 217, 160, 0.28);
-  --success-glow: rgba(16, 217, 160, 0.4);
+  --success-color:  #059669;
+  --success-light:  rgba(5, 150, 105, 0.10);
+  --success-border: rgba(5, 150, 105, 0.25);
 
-  --warning-color: #f5aa1e;
-  --warning-light: rgba(245, 170, 30, 0.13);
-  --warning-border: rgba(245, 170, 30, 0.28);
-  --warning-glow: rgba(245, 170, 30, 0.4);
+  --warning-color:  #d97706;
+  --warning-light:  rgba(217, 119, 6, 0.10);
+  --warning-border: rgba(217, 119, 6, 0.25);
 
-  --danger-color: #f05555;
-  --danger-light: rgba(240, 85, 85, 0.13);
-  --danger-border: rgba(240, 85, 85, 0.28);
+  --danger-color:   #dc2626;
+  --danger-light:   rgba(220, 38, 38, 0.10);
+  --danger-border:  rgba(220, 38, 38, 0.25);
 
-  --info-color: #22d3ee;
-  --info-light: rgba(34, 211, 238, 0.13);
-  --info-glow: rgba(34, 211, 238, 0.4);
+  --info-color:     #2563eb;
+  --info-light:     rgba(37, 99, 235, 0.10);
+  --info-border:    rgba(37, 99, 235, 0.25);
 
-  /* Per-Type KPI Card Gradients */
-  --kpi-primary-bg: linear-gradient(145deg, rgba(124, 107, 240, 0.18) 0%, rgba(14, 20, 38, 0.70) 100%);
-  --kpi-success-bg: linear-gradient(145deg, rgba(16, 217, 160, 0.15) 0%, rgba(14, 20, 38, 0.70) 100%);
-  --kpi-warning-bg: linear-gradient(145deg, rgba(245, 170, 30, 0.15) 0%, rgba(14, 20, 38, 0.70) 100%);
-  --kpi-info-bg: linear-gradient(145deg, rgba(34, 211, 238, 0.15) 0%, rgba(14, 20, 38, 0.70) 100%);
+  /* KPI Card Backgrounds */
+  --kpi-primary-bg: #ffffff;
+  --kpi-success-bg: #ffffff;
+  --kpi-warning-bg: #ffffff;
+  --kpi-info-bg:    #ffffff;
 
-  /* Borders & Dividers */
-  --border-color: rgba(255, 255, 255, 0.07);
+  /* Borders */
+  --border-color:  rgba(203, 213, 225, 0.7);
+  --border-subtle: rgba(226, 232, 240, 0.6);
+  --border-focus:  #2563eb;
+  --border-glow:   rgba(37, 99, 235, 0.3);
+
+  /* Shadows */
+  --shadow-sm:   0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-md:   0 4px 14px -1px rgba(37, 99, 235, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg:   0 14px 30px -4px rgba(15, 23, 42, 0.10), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.20);
+  --shadow-card: 0 2px 10px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+
+  /* Canvas / Chart colors */
+  --chart-grid:   rgba(148, 163, 184, 0.15);
+  --chart-text:   #64748b;
+  --body-overlay-1: rgba(37, 99, 235, 0.04);
+  --body-overlay-2: rgba(59, 130, 246, 0.03);
+}
+
+/* DARK MODE (Midnight Navy & Sapphire Blue — Jonli, chuqur ko'k-tungi dizayn) */
+[data-theme="dark"] {
+  /* Surfaces & Backgrounds */
+  --bg-primary:    #0a0f1d;
+  --bg-secondary:  #10172a;
+  --bg-sidebar:    #0d1424;
+  --bg-card:       #131c31;
+  --bg-card-hover: #192540;
+  --bg-glass:      rgba(13, 20, 36, 0.90);
+  --bg-input:      #141e33;
+  --bg-surface:    rgba(255, 255, 255, 0.04);
+  --bg-surface-hover: rgba(255, 255, 255, 0.08);
+
+  /* Typography */
+  --text-primary:   #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted:     #5b6b85;
+  --text-on-accent: #ffffff;
+
+  /* Brand Accent: Sapphire Blue (Jonli, qorong'uda chiroyli porlovchi ko'k) */
+  --accent:          #3b82f6;
+  --accent-dim:      #2563eb;
+  --accent-gradient: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+  --accent-light:    rgba(59, 130, 246, 0.14);
+  --accent-border:   rgba(59, 130, 246, 0.28);
+  --accent-glow:     rgba(59, 130, 246, 0.35);
+  --accent-color:    #3b82f6;
+  --accent-secondary:#60a5fa;
+  --accent-hover:    #2563eb;
+
+  /* Status Colors */
+  --success-color:  #10b981;
+  --success-light:  rgba(16, 185, 129, 0.12);
+  --success-border: rgba(16, 185, 129, 0.25);
+
+  --warning-color:  #f59e0b;
+  --warning-light:  rgba(245, 158, 11, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.25);
+
+  --danger-color:   #ef4444;
+  --danger-light:   rgba(239, 68, 68, 0.12);
+  --danger-border:  rgba(239, 68, 68, 0.25);
+
+  --info-color:     #38bdf8;
+  --info-light:     rgba(56, 189, 248, 0.12);
+  --info-border:    rgba(56, 189, 248, 0.25);
+
+  /* KPI Card Backgrounds */
+  --kpi-primary-bg: #131c31;
+  --kpi-success-bg: #131c31;
+  --kpi-warning-bg: #131c31;
+  --kpi-info-bg:    #131c31;
+
+  /* Borders */
+  --border-color:  rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-focus: #7c6bf0;
-  --border-glow: rgba(124, 107, 240, 0.3);
+  --border-focus:  #3b82f6;
+  --border-glow:   rgba(59, 130, 246, 0.35);
 
+  /* Shadows */
+  --shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md:   0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg:   0 16px 40px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 0 24px rgba(59, 130, 246, 0.30);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.40);
+
+  /* Canvas / Chart colors */
+  --chart-grid:   rgba(255, 255, 255, 0.06);
+  --chart-text:   #94a3b8;
+  --body-overlay-1: rgba(59, 130, 246, 0.08);
+  --body-overlay-2: rgba(37, 99, 235, 0.05);
+}
+
+/* Common Layout & Spacing Tokens */
+:root {
   /* Font Scale */
   --font-2xs: 10px;
-  --font-xs: 12px;
-  --font-sm: 13px;
-  --font-md: 15px;
-  --font-lg: 18px;
-  --font-xl: 22px;
+  --font-xs:  12px;
+  --font-sm:  13px;
+  --font-md:  15px;
+  --font-lg:  18px;
+  --font-xl:  22px;
   --font-2xl: 30px;
   --font-3xl: 40px;
 
-  /* Spacing Scale */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
+  /* Spacing */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
   --space-10: 40px;
 
-  /* Border Radii */
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  /* Radii */
+  --radius-xs:   6px;
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   18px;
+  --radius-xl:   24px;
   --radius-full: 9999px;
 
-  /* Premium Shadows */
-  --shadow-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 16px 36px -8px rgba(0, 0, 0, 0.65);
-  --shadow-glow: 0 0 28px var(--accent-glow);
-  --shadow-card: 0 10px 30px -6px rgba(0, 0, 0, 0.5);
-
   /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-smooth: 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast:   150ms cubic-bezier(0.16,1,0.3,1);
+  --transition-normal: 250ms cubic-bezier(0.16,1,0.3,1);
+  --transition-smooth: 380ms cubic-bezier(0.16,1,0.3,1);
 }

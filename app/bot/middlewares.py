@@ -27,7 +27,7 @@ class UserContextMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         settings = get_settings()
-        is_superadmin = (user.id == settings.SUPERADMIN_ID)
+        is_superadmin = settings.is_superadmin(user.id)
 
         agent = await sheets_service.get_agent_by_id(user.id)
         if agent:

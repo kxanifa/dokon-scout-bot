@@ -572,7 +572,7 @@ async def approve_agent_api(agent_id: int, admin: Agent = Depends(get_current_ad
 @api_router.post("/agents/{agent_id}/block")
 async def block_agent_api(agent_id: int, admin: Agent = Depends(get_current_admin)):
     settings = get_settings()
-    if agent_id == settings.SUPERADMIN_ID:
+    if settings.is_superadmin(agent_id):
         raise HTTPException(status_code=400, detail="Superadminni bloklab bo'lmaydi.")
     if agent_id == admin.telegram_id:
         raise HTTPException(status_code=400, detail="O'zingizni bloklay olmaysiz.")
@@ -622,7 +622,7 @@ async def promote_admin(agent_id: int, superadmin: Agent = Depends(get_current_s
 @api_router.delete("/admins/{agent_id}")
 async def demote_admin(agent_id: int, superadmin: Agent = Depends(get_current_superadmin)):
     settings = get_settings()
-    if agent_id == settings.SUPERADMIN_ID:
+    if settings.is_superadmin(agent_id):
         raise HTTPException(status_code=400, detail="Superadmin rolini o'zgartirib bo'lmaydi.")
 
     success = await sheets_service.set_agent_role(

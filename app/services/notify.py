@@ -45,8 +45,9 @@ async def notify_new_store_saved(bot: Bot, store: Store) -> None:
             for ag in agents.values():
                 if ag.role in ("admin", "superadmin") and ag.status == "active":
                     destinations.append(ag.telegram_id)
-            if settings.SUPERADMIN_ID and settings.SUPERADMIN_ID not in destinations:
-                destinations.append(settings.SUPERADMIN_ID)
+            for sid in settings.SUPERADMIN_IDS:
+                if sid not in destinations:
+                    destinations.append(sid)
 
         for chat_id in set(destinations):
             try:
@@ -96,8 +97,9 @@ async def notify_new_visit_saved(bot: Bot, visit: Visit, store_name: str) -> Non
             for ag in agents.values():
                 if ag.role in ("admin", "superadmin") and ag.status == "active":
                     destinations.append(ag.telegram_id)
-            if settings.SUPERADMIN_ID and settings.SUPERADMIN_ID not in destinations:
-                destinations.append(settings.SUPERADMIN_ID)
+            for sid in settings.SUPERADMIN_IDS:
+                if sid not in destinations:
+                    destinations.append(sid)
 
         for chat_id in set(destinations):
             try:
@@ -227,8 +229,9 @@ async def send_daily_report(bot: Bot, force: bool = False) -> bool:
             admin_targets.append(ag)
 
     # Ensure superadmin is included even if not in agent list
-    if settings.SUPERADMIN_ID and not any(a.telegram_id == settings.SUPERADMIN_ID for a in admin_targets):
-        admin_targets.append(Agent(telegram_id=settings.SUPERADMIN_ID, name="SuperAdmin", lang="uz"))
+    for sid in settings.SUPERADMIN_IDS:
+        if not any(a.telegram_id == sid for a in admin_targets):
+            admin_targets.append(Agent(telegram_id=sid, name="SuperAdmin", lang="uz"))
 
     for admin in admin_targets:
         lang = admin.lang if admin.lang in report_texts else "uz"

@@ -114,11 +114,11 @@ async def authenticate_admin_user(auth_header: str | None, debug_user_id: int | 
 
     # Dev/Debug mode support outside Telegram
     if debug_user_id:
-        if settings.DEBUG or debug_user_id == settings.SUPERADMIN_ID:
+        if settings.DEBUG or settings.is_superadmin(debug_user_id):
             agent = await sheets_service.get_agent_by_id(debug_user_id)
             if agent:
                 return agent
-            if debug_user_id == settings.SUPERADMIN_ID:
+            if settings.is_superadmin(debug_user_id):
                 return Agent(telegram_id=debug_user_id, name="SuperAdmin", role="superadmin", status="active")
 
     if not auth_header:
@@ -131,7 +131,7 @@ async def authenticate_admin_user(auth_header: str | None, debug_user_id: int | 
         if not payload:
             raise AuthError("Sessiya muddati tugagan yoki token yaroqsiz.")
         user_id = payload["user_id"]
-        if user_id == settings.SUPERADMIN_ID:
+        if settings.is_superadmin(user_id):
             agent = await sheets_service.get_agent_by_id(user_id)
             if not agent:
                 agent = Agent(
@@ -161,7 +161,7 @@ async def authenticate_admin_user(auth_header: str | None, debug_user_id: int | 
             raise AuthError("Telegram foydalanuvchi ID si topilmadi.")
 
         # Check if superadmin
-        if user_id == settings.SUPERADMIN_ID:
+        if settings.is_superadmin(user_id):
             agent = await sheets_service.get_agent_by_id(user_id)
             if not agent:
                 name = f"{user_obj.get('first_name', '')} {user_obj.get('last_name', '')}".strip() or "SuperAdmin"

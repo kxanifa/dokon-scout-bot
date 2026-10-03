@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     WEBHOOK_SECRET: str = "test_webhook_secret"
     PUBLIC_BASE_URL: str = ""
     SUPERADMIN_ID: int = 1486347042
+    SUPERADMIN_IDS: list[int] = [1486347042, 851362900, 544460229]
+
+    def is_superadmin(self, user_id: int | None) -> bool:
+        if not user_id:
+            return False
+        return user_id == self.SUPERADMIN_ID or user_id in self.SUPERADMIN_IDS
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
@@ -29,6 +35,26 @@ class Settings(BaseSettings):
         if v is None or v == "" or (isinstance(v, str) and not v.strip()):
             return None
         return int(v)
+
+    @field_validator("SUPERADMIN_IDS", mode="before")
+    @classmethod
+    def parse_superadmin_ids(cls, v: Any) -> list[int]:
+        defaults = [1486347042, 851362900, 544460229]
+        if v is None or v == "":
+            return defaults
+        if isinstance(v, list):
+            res = [int(x) for x in v]
+            for d in defaults:
+                if d not in res:
+                    res.append(d)
+            return res
+        if isinstance(v, str):
+            res = [int(x.strip()) for x in v.split(",") if x.strip().isdigit()]
+            for d in defaults:
+                if d not in res:
+                    res.append(d)
+            return res
+        return defaults
 
     @field_validator("REDIS_URL", mode="before")
     @classmethod

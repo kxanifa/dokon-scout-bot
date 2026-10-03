@@ -25,8 +25,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
   <!-- Custom CSS Tokens & App Styles -->
-  <link rel="stylesheet" href="css/tokens.css?v=3.0.0">
-  <link rel="stylesheet" href="css/app.css?v=3.0.0">
+  <link rel="stylesheet" href="css/tokens.css?v=3.1.0">
+  <link rel="stylesheet" href="css/app.css?v=3.1.0">
 </head>
 <body>
   <div id="app-container">
@@ -81,6 +81,10 @@
       </div>
 
       <div class="sidebar-footer">
+        <button id="sidebar-theme-btn" class="sidebar-theme-switch-btn" onclick="window.app.toggleTheme()" title="Mavzuni almashtirish">
+          <span class="theme-switch-icon" id="sidebar-theme-icon">☀️</span>
+          <span class="theme-switch-text" id="sidebar-theme-text">Yorug' rejim</span>
+        </button>
         <div class="admin-profile-pill">
           <div class="admin-avatar">👑</div>
           <div class="admin-info">
@@ -127,6 +131,11 @@
             <span class="pill-icon">📁</span>
             <span class="pill-label">Drive</span>
           </a>
+
+          <!-- Theme Toggle (Light / Dark) -->
+          <button id="btn-theme-toggle" class="header-icon-btn theme-toggle" title="Mavzuni o'zgartirish (Yorug' / Tungi)" onclick="window.app.toggleTheme()">
+            <span id="theme-toggle-icon">🌙</span>
+          </button>
 
           <button id="btn-refresh-data" class="header-icon-btn" title="Yangilash" onclick="window.app.refreshCurrentScreen()">
             🔄
